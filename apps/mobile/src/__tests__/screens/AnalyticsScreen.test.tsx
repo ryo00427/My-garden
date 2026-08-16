@@ -8,22 +8,31 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react-nativ
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AnalyticsScreen from '../../screens/main/AnalyticsScreen';
 
-// API モック
+// API モック（バックエンドの HarvestSummary 形に合わせる。summaries ではなく crop_summaries でラップされない）
 const mockGetHarvestSummary = jest.fn().mockResolvedValue({
-  summaries: [
+  total_harvests: 25,
+  total_quantity_kg: 80,
+  quality_distribution: { excellent: 10, good: 15 },
+  crop_summaries: [
     {
       crop_id: 1,
       crop_name: 'トマト',
-      total_quantity: 50,
-      average_growth_days: 90,
       harvest_count: 10,
+      total_quantity: 50,
+      quantity_unit: 'kg',
+      total_quantity_kg: 50,
+      average_quantity: 5,
+      average_growth_days: 90,
     },
     {
       crop_id: 2,
       crop_name: 'キュウリ',
-      total_quantity: 30,
-      average_growth_days: 60,
       harvest_count: 15,
+      total_quantity: 30,
+      quantity_unit: 'kg',
+      total_quantity_kg: 30,
+      average_quantity: 2,
+      average_growth_days: 60,
     },
   ],
 });

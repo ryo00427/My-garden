@@ -1322,17 +1322,24 @@ func (s *Service) getPlotProductivityChart(ctx context.Context, userID uint, fil
 	}
 
 	// 作物→区画のマッピングを構築
+	// 区画ごとに個別クエリを発行するとN+1になるため、一括取得してメモリ上で振り分ける
+	plotIDs := make([]uint, len(plots))
+	plotNameByID := make(map[uint]string, len(plots))
+	for i, plot := range plots {
+		plotIDs[i] = plot.ID
+		plotNameByID[plot.ID] = plot.Name
+	}
+
+	assignments, err := s.repos.PlotAssignment().GetByPlotIDs(ctx, plotIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	cropToPlot := make(map[uint]uint)
 	cropToPlotName := make(map[uint]string)
-	for _, plot := range plots {
-		assignments, err := s.repos.PlotAssignment().GetByPlotID(ctx, plot.ID)
-		if err != nil {
-			continue
-		}
-		for _, assignment := range assignments {
-			cropToPlot[assignment.CropID] = plot.ID
-			cropToPlotName[assignment.CropID] = plot.Name
-		}
+	for _, assignment := range assignments {
+		cropToPlot[assignment.CropID] = assignment.PlotID
+		cropToPlotName[assignment.CropID] = plotNameByID[assignment.PlotID]
 	}
 
 	// 区画別に集計

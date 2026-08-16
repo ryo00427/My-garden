@@ -289,13 +289,24 @@ export const notificationApi = {
   }) => put<{ message: string }>('/users/settings/notifications', settings),
 };
 
-// 収穫サマリー
-interface HarvestSummary {
+// 作物ごとの収穫集計（バックエンドの CropHarvestSummary に対応）
+interface CropHarvestSummary {
   crop_id: number;
   crop_name: string;
-  total_quantity: number;
-  average_growth_days: number;
   harvest_count: number;
+  total_quantity: number;
+  quantity_unit: string;
+  total_quantity_kg: number;
+  average_quantity: number;
+  average_growth_days: number;
+}
+
+// 収穫サマリー（バックエンドの HarvestSummary に対応。ラップされずこの形でそのまま返る）
+interface HarvestSummary {
+  total_harvests: number;
+  total_quantity_kg: number;
+  crop_summaries: CropHarvestSummary[];
+  quality_distribution: Record<string, number>;
 }
 
 // グラフデータポイント
@@ -329,9 +340,7 @@ export const analyticsApi = {
     if (params?.end_date) queryParams.append('end_date', params.end_date);
     if (params?.crop_id) queryParams.append('crop_id', params.crop_id.toString());
     const query = queryParams.toString();
-    return get<{ summaries: HarvestSummary[] }>(
-      `/analytics/harvest-summary${query ? `?${query}` : ''}`
-    );
+    return get<HarvestSummary>(`/analytics/harvest-summary${query ? `?${query}` : ''}`);
   },
 
   // グラフデータを取得
@@ -344,4 +353,4 @@ export const analyticsApi = {
 };
 
 // 型エクスポート
-export type { HarvestSummary, ChartData, ChartDataPoint, ExportResponse };
+export type { HarvestSummary, CropHarvestSummary, ChartData, ChartDataPoint, ExportResponse };

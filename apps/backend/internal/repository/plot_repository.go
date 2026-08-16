@@ -102,6 +102,20 @@ func (r *plotAssignmentRepository) GetByPlotID(ctx context.Context, plotID uint)
 	return assignments, nil
 }
 
+// GetByPlotIDs は複数区画の配置履歴を一括取得します
+// N+1問題を回避するため、ループ内で GetByPlotID を呼ぶ代わりにこちらを使用すること
+func (r *plotAssignmentRepository) GetByPlotIDs(ctx context.Context, plotIDs []uint) ([]model.PlotAssignment, error) {
+	db := GetDB(ctx, r.db)
+	var assignments []model.PlotAssignment
+	if len(plotIDs) == 0 {
+		return assignments, nil
+	}
+	if err := db.Where("plot_id IN ?", plotIDs).Order("assigned_date DESC").Find(&assignments).Error; err != nil {
+		return nil, err
+	}
+	return assignments, nil
+}
+
 // GetActiveByPlotID は指定された区画の現在アクティブな配置を取得します
 // アクティブ = UnassignedDate が NULL
 func (r *plotAssignmentRepository) GetActiveByPlotID(ctx context.Context, plotID uint) (*model.PlotAssignment, error) {

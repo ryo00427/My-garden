@@ -109,7 +109,7 @@ func main() {
 		}
 
 		// Register scheduler routes (for EventBridge Scheduler)
-		h.RegisterSchedulerRoutes(e, cfg.Scheduler.AuthToken, notificationEventHandler)
+		h.RegisterSchedulerRoutes(e, cfg.Scheduler.AuthToken, cfg.Server.Env == "development", notificationEventHandler)
 
 		// Add database health check endpoint
 		e.GET("/health/db", func(c echo.Context) error {

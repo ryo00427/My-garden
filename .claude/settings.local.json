@@ -65,7 +65,14 @@
       "Bash(git rm *)",
       "Bash(go vet *)",
       "Bash(xxd)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "WebFetch(domain:note.com)",
+      "Bash(python3 -c ' *)",
+      "Bash(npx --no-install eas --version)",
+      "Bash(npx --no-install eas whoami)",
+      "WebFetch(domain:secure-scorecard-backend.onrender.com)",
+      "Bash(npx eas *)",
+      "Skill(code-review)"
     ],
     "deny": [],
     "ask": []

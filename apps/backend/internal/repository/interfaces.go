@@ -120,6 +120,8 @@ type PlotAssignmentRepository interface {
 	Create(ctx context.Context, assignment *model.PlotAssignment) error
 	GetByID(ctx context.Context, id uint) (*model.PlotAssignment, error)
 	GetByPlotID(ctx context.Context, plotID uint) ([]model.PlotAssignment, error)
+	// GetByPlotIDs は複数区画の配置履歴を一括取得します（N+1回避用）
+	GetByPlotIDs(ctx context.Context, plotIDs []uint) ([]model.PlotAssignment, error)
 	GetActiveByPlotID(ctx context.Context, plotID uint) (*model.PlotAssignment, error) // 現在アクティブな配置
 	GetByCropID(ctx context.Context, cropID uint) ([]model.PlotAssignment, error)
 	Update(ctx context.Context, assignment *model.PlotAssignment) error

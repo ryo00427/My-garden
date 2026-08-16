@@ -19,7 +19,7 @@ import {
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { BarChart, PieChart } from 'react-native-chart-kit';
-import { analyticsApi, HarvestSummary, ChartData } from '../../services/api';
+import { analyticsApi, CropHarvestSummary, ChartData } from '../../services/api';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -164,7 +164,7 @@ export default function AnalyticsScreen() {
   };
 
   // 円グラフをレンダリング
-  const renderPieChart = (summaries: HarvestSummary[]) => {
+  const renderPieChart = (summaries: CropHarvestSummary[]) => {
     if (!summaries || summaries.length === 0) {
       return (
         <View className="items-center justify-center py-8">
@@ -234,34 +234,26 @@ export default function AnalyticsScreen() {
 
           {summaryLoading ? (
             <ActivityIndicator color="#16a34a" />
-          ) : summaryData?.summaries && summaryData.summaries.length > 0 ? (
+          ) : summaryData?.crop_summaries && summaryData.crop_summaries.length > 0 ? (
             <>
               {/* 総収穫量 */}
               <View className="mb-4 flex-row items-center justify-between">
                 <View>
                   <Text className="text-sm text-gray-500">総収穫量</Text>
                   <Text className="text-2xl font-bold text-primary-600">
-                    {summaryData.summaries.reduce(
-                      (sum, s) => sum + s.total_quantity,
-                      0
-                    )}{' '}
-                    kg
+                    {summaryData.total_quantity_kg} kg
                   </Text>
                 </View>
                 <View>
                   <Text className="text-sm text-gray-500">収穫回数</Text>
                   <Text className="text-2xl font-bold text-gray-800">
-                    {summaryData.summaries.reduce(
-                      (sum, s) => sum + s.harvest_count,
-                      0
-                    )}{' '}
-                    回
+                    {summaryData.total_harvests} 回
                   </Text>
                 </View>
               </View>
 
               {/* 作物別円グラフ */}
-              {renderPieChart(summaryData.summaries)}
+              {renderPieChart(summaryData.crop_summaries)}
             </>
           ) : (
             <View className="items-center justify-center py-8">

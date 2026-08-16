@@ -941,6 +941,17 @@ func (r *MockPlotAssignmentRepository) GetByPlotID(ctx context.Context, plotID u
 	return result, nil
 }
 
+// GetByPlotIDs は複数区画の配置履歴を一括取得します。
+func (r *MockPlotAssignmentRepository) GetByPlotIDs(ctx context.Context, plotIDs []uint) ([]model.PlotAssignment, error) {
+	var result []model.PlotAssignment
+	for _, plotID := range plotIDs {
+		for _, a := range r.AssignmentsByPlotID[plotID] {
+			result = append(result, *a)
+		}
+	}
+	return result, nil
+}
+
 // GetActiveByPlotID は区画の現在アクティブな配置を取得します。
 func (r *MockPlotAssignmentRepository) GetActiveByPlotID(ctx context.Context, plotID uint) (*model.PlotAssignment, error) {
 	for _, a := range r.AssignmentsByPlotID[plotID] {

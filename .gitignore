@@ -1,3 +1,4 @@
+
 # Dependencies
 node_modules/
 .pnp
@@ -85,3 +86,6 @@ web-build/
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+
+# 面接準備メモ（個人の推測情報を含むため非公開）
+/interview/

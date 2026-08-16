@@ -29,6 +29,12 @@
     },
     "plugins": [
       "expo-asset"
-    ]
+    ],
+    "owner": "ryu.sugiyama",
+    "extra": {
+      "eas": {
+        "projectId": "561ceed8-2147-4686-ab31-d9af84520206"
+      }
+    }
   }
 }

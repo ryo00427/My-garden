@@ -141,15 +141,16 @@ func (h *SchedulerHandler) GetSchedulerStatus(c echo.Context) error {
 // 引数:
 //   - e: Echoインスタンス
 //   - schedulerToken: スケジューラー認証トークン
+//   - isDevelopment: 開発環境かどうか（true の場合のみ未設定トークンでの認証スキップを許可）
 //   - eventHandler: 通知イベントハンドラー（nilの場合は通知送信なし）
-func (h *Handler) RegisterSchedulerRoutes(e *echo.Echo, schedulerToken string, eventHandler service.NotificationEventHandler) {
+func (h *Handler) RegisterSchedulerRoutes(e *echo.Echo, schedulerToken string, isDevelopment bool, eventHandler service.NotificationEventHandler) {
 	schedulerHandler := NewSchedulerHandler(h.service, eventHandler)
 
 	// スケジューラー専用エンドポイント（認証はトークンベース）
 	scheduler := e.Group("/api/v1/scheduler")
 
 	// トークン認証ミドルウェアを適用
-	scheduler.Use(schedulerAuthMiddleware(schedulerToken))
+	scheduler.Use(schedulerAuthMiddleware(schedulerToken, isDevelopment))
 
 	// ルート登録
 	scheduler.POST("/notifications", schedulerHandler.ProcessScheduledNotifications)
@@ -158,12 +159,18 @@ func (h *Handler) RegisterSchedulerRoutes(e *echo.Echo, schedulerToken string, e
 
 // schedulerAuthMiddleware はスケジューラー用の簡易認証ミドルウェアです。
 // リクエストヘッダーの X-Scheduler-Token と環境変数の SCHEDULER_AUTH_TOKEN を比較します。
-func schedulerAuthMiddleware(expectedToken string) echo.MiddlewareFunc {
+//
+// SCHEDULER_AUTH_TOKEN が未設定の場合、開発環境（isDevelopment=true）でのみ認証をスキップします。
+// 本番・ステージング環境で未設定の場合は、誰でも叩ける公開エンドポイントになってしまうため
+// 常に拒否します（設定漏れによる意図しない公開を防ぐフェイルクローズ）。
+func schedulerAuthMiddleware(expectedToken string, isDevelopment bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			// トークンが設定されていない場合は認証をスキップ（開発環境用）
 			if expectedToken == "" {
-				return next(c)
+				if isDevelopment {
+					return next(c)
+				}
+				return echo.NewHTTPError(http.StatusServiceUnavailable, "scheduler auth token is not configured")
 			}
 
 			// リクエストヘッダーからトークンを取得

@@ -34,6 +34,10 @@ services:
         generateValue: true
       - key: JWT_EXPIRE_HOUR
         value: "24"
+      # SCHEDULER_AUTH_TOKEN も Render が自動生成。
+      # 未設定だと /api/v1/scheduler/notifications が本番では 503 を返す（フェイルクローズ）。
+      - key: SCHEDULER_AUTH_TOKEN
+        generateValue: true
       # CORS: モバイルアプリは Origin ヘッダを送らないので * で問題なし
       - key: CORS_ALLOWED_ORIGINS
         value: "*"
