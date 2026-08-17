@@ -509,6 +509,56 @@ func TestDeleteCrop_WithRelatedRecords(t *testing.T) {
 	}
 }
 
+// TestDeleteCrop_CleansUpTaskAndPlotAssignment は、作物削除時に自動生成された
+// タスクと区画配置履歴も削除され、区画のステータスが available に戻ることをテストします。
+// （CreateCrop が初期タスクを自動生成するようになったため、これを掃除しないと
+// 削除後もタスク一覧に亡霊タスクが残り続ける）
+func TestDeleteCrop_CleansUpTaskAndPlotAssignment(t *testing.T) {
+	mockRepos := repository.NewMockRepositories()
+	svc := NewService(mockRepos)
+	ctx := context.Background()
+
+	plot := &model.Plot{UserID: 1, Name: "畑A", Width: 1.0, Height: 1.0, Status: "available"}
+	_ = svc.CreatePlot(ctx, plot)
+
+	crop := &model.Crop{
+		UserID:              1,
+		Name:                "トマト",
+		PlantedDate:         time.Now(),
+		ExpectedHarvestDate: time.Now().AddDate(0, 3, 0),
+		Status:              "planted",
+	}
+	// CreateCrop は初期タスクを自動生成する
+	_ = svc.CreateCrop(ctx, crop)
+
+	_, err := svc.AssignCropToPlot(ctx, plot.ID, crop.ID, time.Now())
+	if err != nil {
+		t.Fatalf("AssignCropToPlot failed: %v", err)
+	}
+
+	// Act: 作物を削除
+	if err := svc.DeleteCrop(ctx, crop.ID); err != nil {
+		t.Fatalf("DeleteCrop failed: %v", err)
+	}
+
+	// Assert: 自動生成された初期タスクも削除されている
+	tasks, _ := mockRepos.Task().GetByUserID(ctx, 1)
+	for _, tk := range tasks {
+		if tk.CropID != nil && *tk.CropID == crop.ID {
+			t.Errorf("Expected task linked to deleted crop to be removed, found task %d", tk.ID)
+		}
+	}
+
+	// Assert: 区画は available に戻っている
+	updatedPlot, err := svc.GetPlotByID(ctx, plot.ID)
+	if err != nil {
+		t.Fatalf("GetPlotByID failed: %v", err)
+	}
+	if updatedPlot.Status != "available" {
+		t.Errorf("Expected plot status 'available' after crop deletion, got '%s'", updatedPlot.Status)
+	}
+}
+
 // =============================================================================
 // GrowthRecord テスト
 // =============================================================================

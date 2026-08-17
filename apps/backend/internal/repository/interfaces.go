@@ -65,6 +65,8 @@ type TaskRepository interface {
 	GetAllTodayTasks(ctx context.Context) ([]model.Task, error)
 	Update(ctx context.Context, task *model.Task) error
 	Delete(ctx context.Context, id uint) error
+	// DeleteByCropID は作物に紐づくタスクを一括削除します（作物削除時のクリーンアップ用）
+	DeleteByCropID(ctx context.Context, cropID uint) error
 }
 
 // CropRepository defines the interface for crop data access
@@ -127,6 +129,7 @@ type PlotAssignmentRepository interface {
 	Update(ctx context.Context, assignment *model.PlotAssignment) error
 	Delete(ctx context.Context, id uint) error
 	DeleteByPlotID(ctx context.Context, plotID uint) error
+	DeleteByCropID(ctx context.Context, cropID uint) error
 }
 
 // DeviceTokenRepository defines the interface for device token data access

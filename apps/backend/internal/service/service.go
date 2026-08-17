@@ -617,6 +617,36 @@ func (s *Service) UpdateCrop(ctx context.Context, crop *model.Crop) error {
 //   - error: 削除に失敗した場合のエラー
 func (s *Service) DeleteCrop(ctx context.Context, id uint) error {
 	return s.repos.WithTransaction(ctx, func(txCtx context.Context) error {
+		// この作物がどこかの区画にアクティブ配置されている場合は、区画を available に戻す
+		// （配置履歴だけ削除して区画のステータスを放置すると、二度と使えない区画が残ってしまう）
+		assignments, err := s.repos.PlotAssignment().GetByCropID(txCtx, id)
+		if err != nil {
+			return err
+		}
+		for i := range assignments {
+			if assignments[i].UnassignedDate != nil {
+				continue
+			}
+			plot, err := s.repos.Plot().GetByID(txCtx, assignments[i].PlotID)
+			if err != nil {
+				continue // 区画が既に削除済みなどの場合はスキップ
+			}
+			plot.Status = "available"
+			if err := s.repos.Plot().Update(txCtx, plot); err != nil {
+				return err
+			}
+		}
+
+		// 関連する区画配置履歴を一括削除
+		if err := s.repos.PlotAssignment().DeleteByCropID(txCtx, id); err != nil {
+			return err
+		}
+
+		// 関連するタスク（作物追加時に自動生成された初期タスクなど）を一括削除
+		if err := s.repos.Task().DeleteByCropID(txCtx, id); err != nil {
+			return err
+		}
+
 		// 関連する成長記録を一括削除
 		if err := s.repos.GrowthRecord().DeleteByCropID(txCtx, id); err != nil {
 			return err

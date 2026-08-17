@@ -431,6 +431,23 @@ func (r *MockTaskRepository) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
+// DeleteByCropID は作物に紐づくタスクを一括削除します（作物削除時のクリーンアップ用）
+func (r *MockTaskRepository) DeleteByCropID(ctx context.Context, cropID uint) error {
+	for id, task := range r.Tasks {
+		if task.CropID != nil && *task.CropID == cropID {
+			userTasks := r.TasksByUserID[task.UserID]
+			for i, t := range userTasks {
+				if t.ID == id {
+					r.TasksByUserID[task.UserID] = append(userTasks[:i], userTasks[i+1:]...)
+					break
+				}
+			}
+			delete(r.Tasks, id)
+		}
+	}
+	return nil
+}
+
 // MockCropRepository は CropRepository インターフェースのモック実装です。
 // 作物管理機能のテストに使用します。
 type MockCropRepository struct {
@@ -1017,6 +1034,23 @@ func (r *MockPlotAssignmentRepository) DeleteByPlotID(ctx context.Context, plotI
 		delete(r.Assignments, assignment.ID)
 	}
 	delete(r.AssignmentsByPlotID, plotID)
+	return nil
+}
+
+// DeleteByCropID は作物IDで全配置履歴を削除します（作物削除時のクリーンアップ用）。
+func (r *MockPlotAssignmentRepository) DeleteByCropID(ctx context.Context, cropID uint) error {
+	for _, assignment := range r.AssignmentsByCropID[cropID] {
+		// AssignmentsByPlotIDからも削除
+		plotAssignments := r.AssignmentsByPlotID[assignment.PlotID]
+		for i, a := range plotAssignments {
+			if a.ID == assignment.ID {
+				r.AssignmentsByPlotID[assignment.PlotID] = append(plotAssignments[:i], plotAssignments[i+1:]...)
+				break
+			}
+		}
+		delete(r.Assignments, assignment.ID)
+	}
+	delete(r.AssignmentsByCropID, cropID)
 	return nil
 }
 

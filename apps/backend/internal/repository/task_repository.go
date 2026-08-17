@@ -118,3 +118,8 @@ func (r *taskRepository) Update(ctx context.Context, task *model.Task) error {
 func (r *taskRepository) Delete(ctx context.Context, id uint) error {
 	return GetDB(ctx, r.db).Delete(&model.Task{}, id).Error
 }
+
+// DeleteByCropID は作物に紐づくタスクを一括削除します（作物削除時のクリーンアップ用）
+func (r *taskRepository) DeleteByCropID(ctx context.Context, cropID uint) error {
+	return GetDB(ctx, r.db).Where("crop_id = ?", cropID).Delete(&model.Task{}).Error
+}

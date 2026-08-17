@@ -34,6 +34,12 @@ export default function AddCropScreen() {
   const [plantedDateStr, setPlantedDateStr] = useState<string>(
     new Date().toISOString().split('T')[0] ?? '' // YYYY-MM-DD形式
   );
+  // 収穫予定日（デフォルトは植え付け日の60日後だが、ユーザーが変更できる）
+  const [expectedHarvestDateStr, setExpectedHarvestDateStr] = useState<string>(() => {
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 60);
+    return defaultDate.toISOString().split('T')[0] ?? '';
+  });
   const [location, setLocation] = useState('');
   const [memo, setMemo] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -71,6 +77,17 @@ export default function AddCropScreen() {
       newErrors.date = '日付はYYYY-MM-DD形式で入力してください';
     }
 
+    if (!expectedHarvestDateStr.trim()) {
+      newErrors.harvestDate = '収穫予定日を入力してください';
+    } else if (!dateRegex.test(expectedHarvestDateStr)) {
+      newErrors.harvestDate = '日付はYYYY-MM-DD形式で入力してください';
+    } else if (
+      dateRegex.test(plantedDateStr) &&
+      expectedHarvestDateStr <= plantedDateStr
+    ) {
+      newErrors.harvestDate = '収穫予定日は植え付け日より後の日付にしてください';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -79,12 +96,9 @@ export default function AddCropScreen() {
   const handleSave = () => {
     if (!validate()) return;
 
-    // 植え付け日をパース
+    // 日付をパース
     const plantedDate = new Date(plantedDateStr + 'T00:00:00Z');
-
-    // 収穫予定日を植え付け日から60日後に設定（仮）
-    const harvestDate = new Date(plantedDate);
-    harvestDate.setDate(harvestDate.getDate() + 60);
+    const harvestDate = new Date(expectedHarvestDateStr + 'T00:00:00Z');
 
     createCropMutation.mutate({
       name: name.trim(),
@@ -174,6 +188,29 @@ export default function AddCropScreen() {
                 </View>
               </View>
               {errors.date && <Text className="mt-1 text-sm text-red-500">{errors.date}</Text>}
+            </View>
+
+            {/* 収穫予定日 */}
+            <View className="mb-6">
+              <Text className="mb-2 text-sm font-medium text-gray-700">
+                収穫予定日 <Text className="text-red-500">*</Text>
+              </Text>
+              <View className="flex-row items-center rounded-lg border border-gray-200 bg-white">
+                <TextInput
+                  value={expectedHarvestDateStr}
+                  onChangeText={setExpectedHarvestDateStr}
+                  placeholder="2024-03-01"
+                  placeholderTextColor="#9ca3af"
+                  className="flex-1 px-4 py-3 text-base text-gray-800"
+                  keyboardType="numbers-and-punctuation"
+                />
+                <View className="pr-4">
+                  <Ionicons name="calendar-outline" size={20} color="#6b7280" />
+                </View>
+              </View>
+              {errors.harvestDate && (
+                <Text className="mt-1 text-sm text-red-500">{errors.harvestDate}</Text>
+              )}
             </View>
 
             {/* 場所 */}

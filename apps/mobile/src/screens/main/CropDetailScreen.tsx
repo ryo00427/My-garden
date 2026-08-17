@@ -15,8 +15,9 @@ import {
   StatusBar,
   Dimensions,
   RefreshControl,
+  Alert,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -72,6 +73,7 @@ export default function CropDetailScreen() {
   const route = useRoute<RouteType>();
   const { cropId } = route.params;
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const queryClient = useQueryClient();
 
   // 作物詳細を取得
   const { data: cropData, isLoading, refetch } = useQuery({
@@ -82,6 +84,18 @@ export default function CropDetailScreen() {
   // APIはオブジェクトを直接返すので、cropData自体がCrop
   const crop = cropData;
 
+  // 作物削除
+  const deleteCropMutation = useMutation({
+    mutationFn: () => cropsApi.delete(cropId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crops'] });
+      navigation.goBack();
+    },
+    onError: (error: Error) => {
+      Alert.alert('エラー', error.message || '作物の削除に失敗しました');
+    },
+  });
+
   // 戻る
   const handleBack = () => {
     navigation.goBack();
@@ -90,6 +104,22 @@ export default function CropDetailScreen() {
   // 編集
   const handleEdit = () => {
     navigation.navigate('EditCrop', { cropId });
+  };
+
+  // 削除（確認ダイアログを表示してから削除）
+  const handleDelete = () => {
+    Alert.alert(
+      '作物を削除',
+      `「${crop?.name}」を削除しますか？この操作は取り消せません。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: () => deleteCropMutation.mutate(),
+        },
+      ]
+    );
   };
 
   // 成長記録追加
@@ -277,9 +307,16 @@ export default function CropDetailScreen() {
               )}
               <TouchableOpacity
                 onPress={handleEdit}
-                className="rounded-full bg-white/20 px-4 py-2"
+                className="mr-2 rounded-full bg-white/20 px-4 py-2"
               >
                 <Text className="font-medium text-white">編集</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleDelete}
+                disabled={deleteCropMutation.isPending}
+                className="rounded-full bg-white/20 p-2"
+              >
+                <Ionicons name="trash-outline" size={20} color="white" />
               </TouchableOpacity>
             </View>
           </View>

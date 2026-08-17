@@ -155,3 +155,9 @@ func (r *plotAssignmentRepository) DeleteByPlotID(ctx context.Context, plotID ui
 	db := GetDB(ctx, r.db)
 	return db.Where("plot_id = ?", plotID).Delete(&model.PlotAssignment{}).Error
 }
+
+// DeleteByCropID は指定された作物の全配置履歴を削除します（作物削除時のクリーンアップ用）
+func (r *plotAssignmentRepository) DeleteByCropID(ctx context.Context, cropID uint) error {
+	db := GetDB(ctx, r.db)
+	return db.Where("crop_id = ?", cropID).Delete(&model.PlotAssignment{}).Error
+}
