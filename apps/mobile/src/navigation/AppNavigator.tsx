@@ -24,6 +24,7 @@ import CalendarScreen from '../screens/main/CalendarScreen';
 import TasksScreen from '../screens/main/TasksScreen';
 import WorkLogScreen from '../screens/main/WorkLogScreen';
 import RecordHarvestScreen from '../screens/main/RecordHarvestScreen';
+import AddTaskScreen from '../screens/main/AddTaskScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
 
 // 認証スタックのパラメータ
@@ -40,7 +41,7 @@ export type MainStackParamList = {
   EditCrop: { cropId: number };
   WorkLog: { cropId?: number };
   RecordHarvest: { cropId: number };
-  AddTask: { date?: string };
+  AddTask: { date?: string; cropId?: number };
   TaskDetail: { taskId: number };
 };
 
@@ -205,6 +206,16 @@ function MainNavigator() {
       <MainStack.Screen
         name="RecordHarvest"
         component={RecordHarvestScreen}
+        options={{
+          animation: 'slide_from_bottom',
+          presentation: 'modal',
+        }}
+      />
+
+      {/* タスク追加画面（カレンダー・作物詳細・タスク一覧から遷移） */}
+      <MainStack.Screen
+        name="AddTask"
+        component={AddTaskScreen}
         options={{
           animation: 'slide_from_bottom',
           presentation: 'modal',

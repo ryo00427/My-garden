@@ -36,6 +36,7 @@ type RootStackParamList = {
   EditCrop: { cropId: number };
   WorkLog: { cropId: number };
   RecordHarvest: { cropId: number };
+  AddTask: { date?: string; cropId?: number };
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -196,7 +197,16 @@ export default function CropDetailScreen() {
 
             {/* この作物のタスク */}
             <View className="mx-4 mt-4 rounded-xl bg-white p-4">
-              <Text className="font-semibold text-gray-800">この作物のタスク</Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="font-semibold text-gray-800">この作物のタスク</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('AddTask', { cropId })}
+                  className="flex-row items-center"
+                >
+                  <Ionicons name="add-circle-outline" size={16} color="#059669" />
+                  <Text className="ml-1 text-sm font-medium text-emerald-600">追加</Text>
+                </TouchableOpacity>
+              </View>
               {cropTasks.length > 0 ? (
                 <View className="mt-3">
                   {cropTasks.map((task) => {

@@ -2,43 +2,31 @@
 // TasksScreen - タスク一覧画面
 // =============================================================================
 // タスクの一覧表示と管理を提供します。
-// タスクの作成、完了、フィルタリング機能を提供します。
+// タスクの完了・削除・フィルタリング機能を提供します。
+// タスクの新規作成はAddTaskScreen（繰り返し設定にも対応）に遷移して行います。
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { tasksApi, cropsApi } from '../../services/api';
 import { showAlert } from '../../utils/alert';
 
 type FilterType = 'all' | 'today' | 'overdue';
-type PriorityType = 'low' | 'medium' | 'high';
 
-// タスク作成フォームの初期値
-const initialFormState = {
-  title: '',
-  description: '',
-  due_date: '',
-  priority: 'medium' as PriorityType,
-  crop_id: undefined as number | undefined,
+// ナビゲーションの型定義
+type RootStackParamList = {
+  AddTask: { date?: string; cropId?: number };
 };
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 export default function TasksScreen() {
+  const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<FilterType>('all');
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [formData, setFormData] = useState(initialFormState);
-  const [showCropPicker, setShowCropPicker] = useState(false);
 
   // タスク一覧を取得
   const { data: allTasks, isLoading, refetch } = useQuery({
@@ -55,7 +43,7 @@ export default function TasksScreen() {
     },
   });
 
-  // 作物一覧を取得（タスクとの紐付け表示・選択用）
+  // 作物一覧を取得（タスクとの紐付け表示用）
   const { data: cropsData } = useQuery({
     queryKey: ['crops'],
     queryFn: () => cropsApi.getAll(),
@@ -63,30 +51,6 @@ export default function TasksScreen() {
   const crops = cropsData || [];
   // 作物IDから作物名を引くためのマップ
   const cropNameById = new Map(crops.map((c) => [c.id, c.name]));
-
-  // タスク作成ミューテーション
-  const createMutation = useMutation({
-    mutationFn: (data: typeof initialFormState) => tasksApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setIsModalVisible(false);
-      setFormData(initialFormState);
-      setShowCropPicker(false);
-      showAlert('成功', 'タスクを作成しました');
-    },
-    onError: (error: unknown) => {
-      console.error('タスク作成エラー:', error);
-      let errorMessage = 'タスクの作成に失敗しました';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'object' && error !== null) {
-        // ApiError などのカスタムエラーオブジェクトを処理
-        const errorObj = error as { message?: string; error?: string };
-        errorMessage = errorObj.message || errorObj.error || JSON.stringify(error);
-      }
-      showAlert('エラー', errorMessage);
-    },
-  });
 
   // タスク完了ミューテーション
   const completeMutation = useMutation({
@@ -139,44 +103,9 @@ export default function TasksScreen() {
     );
   };
 
-  // タスク作成ハンドラー
-  const handleCreate = () => {
-    // バリデーション
-    if (!formData.title.trim()) {
-      showAlert('エラー', 'タイトルを入力してください');
-      return;
-    }
-    if (!formData.due_date.trim()) {
-      showAlert('エラー', '期限を入力してください（例: 2024-12-31）');
-      return;
-    }
-    // 日付形式チェック（YYYY-MM-DD）
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(formData.due_date)) {
-      showAlert('エラー', '期限は YYYY-MM-DD 形式で入力してください（例: 2024-12-31）');
-      return;
-    }
-    // バックエンドはRFC3339形式（time.Time）を期待するため変換
-    const dueDateISO = new Date(formData.due_date + 'T00:00:00Z').toISOString();
-    createMutation.mutate({
-      ...formData,
-      due_date: dueDateISO,
-    });
-  };
-
-  // モーダルを開く
-  const openModal = () => {
-    // デフォルトで今日の日付を設定
-    const today = new Date().toISOString().split('T')[0] || '';
-    setFormData({ ...initialFormState, due_date: today });
-    setIsModalVisible(true);
-  };
-
-  // モーダルを閉じる
-  const closeModal = () => {
-    setIsModalVisible(false);
-    setFormData(initialFormState);
-    setShowCropPicker(false);
+  // タスク追加画面へ遷移
+  const handleAddTask = () => {
+    navigation.navigate('AddTask', {});
   };
 
   // APIは配列を直接返すので、allTasks自体が配列
@@ -268,6 +197,19 @@ export default function TasksScreen() {
                       </Text>
                     </View>
                   )}
+                  {/* 繰り返し設定 */}
+                  {task.recurrence && (
+                    <View className="mt-2 flex-row items-center self-start rounded-full bg-blue-50 px-2 py-0.5">
+                      <Ionicons name="repeat" size={12} color="#2563eb" />
+                      <Text className="ml-1 text-xs font-medium text-blue-700">
+                        {task.recurrence === 'daily'
+                          ? '毎日'
+                          : task.recurrence === 'weekly'
+                          ? '毎週'
+                          : '毎月'}
+                      </Text>
+                    </View>
+                  )}
                   <View className="mt-2 flex-row items-center">
                     {/* 優先度バッジ */}
                     <View
@@ -326,188 +268,10 @@ export default function TasksScreen() {
       {/* 追加ボタン */}
       <TouchableOpacity
         className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary-600 shadow-lg"
-        onPress={openModal}
+        onPress={handleAddTask}
       >
         <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
-
-      {/* タスク作成モーダル */}
-      <Modal
-        visible={isModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={closeModal}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          className="flex-1"
-        >
-          <View className="flex-1 justify-end bg-black/50">
-            <View className="rounded-t-3xl bg-white p-6">
-              {/* ヘッダー */}
-              <View className="mb-6 flex-row items-center justify-between">
-                <Text className="text-xl font-bold text-gray-800">
-                  新しいタスク
-                </Text>
-                <TouchableOpacity onPress={closeModal}>
-                  <Ionicons name="close" size={24} color="#6b7280" />
-                </TouchableOpacity>
-              </View>
-
-              {/* タイトル入力 */}
-              <View className="mb-4">
-                <Text className="mb-2 text-sm font-medium text-gray-700">
-                  タイトル *
-                </Text>
-                <TextInput
-                  className="rounded-lg border border-gray-300 px-4 py-3 text-base"
-                  placeholder="タスクのタイトル"
-                  value={formData.title}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({ ...prev, title: text }))
-                  }
-                />
-              </View>
-
-              {/* 説明入力 */}
-              <View className="mb-4">
-                <Text className="mb-2 text-sm font-medium text-gray-700">
-                  説明
-                </Text>
-                <TextInput
-                  className="rounded-lg border border-gray-300 px-4 py-3 text-base"
-                  placeholder="タスクの説明（任意）"
-                  value={formData.description}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({ ...prev, description: text }))
-                  }
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              {/* 期限入力 */}
-              <View className="mb-4">
-                <Text className="mb-2 text-sm font-medium text-gray-700">
-                  期限 * (YYYY-MM-DD)
-                </Text>
-                <TextInput
-                  className="rounded-lg border border-gray-300 px-4 py-3 text-base"
-                  placeholder="2024-12-31"
-                  value={formData.due_date}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({ ...prev, due_date: text }))
-                  }
-                  keyboardType="numbers-and-punctuation"
-                />
-              </View>
-
-              {/* 対象の作物（マイプラント） */}
-              <View className="mb-4">
-                <Text className="mb-2 text-sm font-medium text-gray-700">
-                  対象の作物（任意）
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowCropPicker(!showCropPicker)}
-                  className="flex-row items-center justify-between rounded-lg border border-gray-300 px-4 py-3"
-                >
-                  <Text className="text-base text-gray-800">
-                    {formData.crop_id != null
-                      ? cropNameById.get(formData.crop_id) ?? '選択してください'
-                      : 'なし'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={18} color="#9ca3af" />
-                </TouchableOpacity>
-                {showCropPicker && (
-                  <View className="mt-2 rounded-lg border border-gray-200 bg-white">
-                    <TouchableOpacity
-                      onPress={() => {
-                        setFormData((prev) => ({ ...prev, crop_id: undefined }));
-                        setShowCropPicker(false);
-                      }}
-                      className="border-b border-gray-100 px-4 py-3"
-                    >
-                      <Text className="text-gray-500">なし</Text>
-                    </TouchableOpacity>
-                    {crops.map((crop) => (
-                      <TouchableOpacity
-                        key={crop.id}
-                        onPress={() => {
-                          setFormData((prev) => ({ ...prev, crop_id: crop.id }));
-                          setShowCropPicker(false);
-                        }}
-                        className="border-b border-gray-100 px-4 py-3"
-                      >
-                        <Text
-                          className={
-                            formData.crop_id === crop.id
-                              ? 'font-medium text-emerald-600'
-                              : 'text-gray-800'
-                          }
-                        >
-                          {crop.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-
-              {/* 優先度選択 */}
-              <View className="mb-6">
-                <Text className="mb-2 text-sm font-medium text-gray-700">
-                  優先度
-                </Text>
-                <View className="flex-row gap-2">
-                  {[
-                    { key: 'low', label: '低', color: 'bg-green-100 border-green-300', activeColor: 'bg-green-500' },
-                    { key: 'medium', label: '中', color: 'bg-yellow-100 border-yellow-300', activeColor: 'bg-yellow-500' },
-                    { key: 'high', label: '高', color: 'bg-red-100 border-red-300', activeColor: 'bg-red-500' },
-                  ].map((item) => (
-                    <TouchableOpacity
-                      key={item.key}
-                      className={`flex-1 items-center rounded-lg border py-3 ${
-                        formData.priority === item.key
-                          ? item.activeColor
-                          : item.color
-                      }`}
-                      onPress={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          priority: item.key as PriorityType,
-                        }))
-                      }
-                    >
-                      <Text
-                        className={`font-medium ${
-                          formData.priority === item.key
-                            ? 'text-white'
-                            : 'text-gray-700'
-                        }`}
-                      >
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* 作成ボタン */}
-              <TouchableOpacity
-                className={`items-center rounded-lg py-4 ${
-                  createMutation.isPending ? 'bg-gray-400' : 'bg-primary-600'
-                }`}
-                onPress={handleCreate}
-                disabled={createMutation.isPending}
-              >
-                <Text className="text-base font-semibold text-white">
-                  {createMutation.isPending ? '作成中...' : 'タスクを作成'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }

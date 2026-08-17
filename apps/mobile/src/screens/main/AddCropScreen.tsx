@@ -54,6 +54,8 @@ export default function AddCropScreen() {
     }) => cropsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crops'] });
+      // 作物作成時にバックエンド側で初期タスク（水やり）が自動生成されるため、タスク一覧も再取得する
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       navigation.goBack();
     },
     onError: (error: Error) => {

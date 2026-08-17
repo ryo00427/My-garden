@@ -214,6 +214,9 @@ interface Task {
   status: 'pending' | 'completed';
   // 紐づく作物のID（バックエンドの model.Task.CropID に対応。任意）
   crop_id?: number;
+  // 繰り返し設定（バックエンドの model.Task の繰り返しフィールドに対応。任意）
+  recurrence?: 'daily' | 'weekly' | 'monthly';
+  recurrence_interval?: number;
 }
 
 export const tasksApi = {
