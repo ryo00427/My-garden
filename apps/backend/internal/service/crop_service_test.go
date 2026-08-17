@@ -66,6 +66,49 @@ func TestCreateCrop_Success(t *testing.T) {
 	}
 }
 
+// TestCreateCrop_GeneratesInitialTask は作物作成時に初期タスク（水やり）が
+// 自動生成されることをテストします。
+func TestCreateCrop_GeneratesInitialTask(t *testing.T) {
+	// Arrange
+	mockRepos := repository.NewMockRepositories()
+	svc := NewService(mockRepos)
+	ctx := context.Background()
+
+	crop := &model.Crop{
+		UserID:              1,
+		Name:                "ナス",
+		PlantedDate:         time.Now(),
+		ExpectedHarvestDate: time.Now().AddDate(0, 2, 0),
+	}
+
+	// Act
+	if err := svc.CreateCrop(ctx, crop); err != nil {
+		t.Fatalf("CreateCrop failed: %v", err)
+	}
+
+	// Assert: ユーザーのタスク一覧に、作成した作物に紐づく初期タスクが1件存在すること
+	tasks, err := mockRepos.Task().GetByUserID(ctx, crop.UserID)
+	if err != nil {
+		t.Fatalf("Failed to get tasks: %v", err)
+	}
+
+	var found *model.Task
+	for i := range tasks {
+		if tasks[i].CropID != nil && *tasks[i].CropID == crop.ID {
+			found = &tasks[i]
+			break
+		}
+	}
+
+	if found == nil {
+		t.Fatalf("Expected an initial task linked to crop %d, found none in %+v", crop.ID, tasks)
+	}
+
+	if found.Status != "pending" {
+		t.Errorf("Expected initial task status 'pending', got '%s'", found.Status)
+	}
+}
+
 // TestCreateCrop_WithPlotID は区画ID付きの作物作成をテストします。
 func TestCreateCrop_WithPlotID(t *testing.T) {
 	mockRepos := repository.NewMockRepositories()

@@ -502,6 +502,9 @@ func (s *Service) DeleteTask(ctx context.Context, id uint) error {
 }
 
 // CreateCrop は新しい作物を登録します。
+// 併せて、ホーム画面の「次の作業」に表示される初期タスク（水やり）を1件自動生成します。
+// これがないと、作物を追加した直後でも「次の作業」欄が常に空のままになり、
+// ユーザーから見て作物とタスクの関連が分かりにくくなるため。
 //
 // 引数:
 //   - ctx: リクエストコンテキスト
@@ -510,7 +513,22 @@ func (s *Service) DeleteTask(ctx context.Context, id uint) error {
 // 戻り値:
 //   - error: 作成に失敗した場合のエラー
 func (s *Service) CreateCrop(ctx context.Context, crop *model.Crop) error {
-	return s.repos.Crop().Create(ctx, crop)
+	return s.repos.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.repos.Crop().Create(txCtx, crop); err != nil {
+			return err
+		}
+
+		initialTask := &model.Task{
+			UserID:      crop.UserID,
+			CropID:      &crop.ID,
+			Title:       crop.Name + "に水やりをする",
+			Description: "新しく登録した作物の初回の水やりをしましょう。",
+			DueDate:     time.Now(),
+			Priority:    "medium",
+			Status:      "pending",
+		}
+		return s.repos.Task().Create(txCtx, initialTask)
+	})
 }
 
 // GetCropByID はIDで作物を取得します。

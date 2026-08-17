@@ -95,7 +95,8 @@ type TokenBlacklist struct {
 type Task struct {
 	BaseModel
 	UserID      uint       `gorm:"index;not null" json:"user_id"`
-	PlantID     *uint      `gorm:"index" json:"plant_id,omitempty"` // Optional: link to specific plant
+	PlantID     *uint      `gorm:"index" json:"plant_id,omitempty"` // Optional: link to specific plant（レガシーPlantモデル用）
+	CropID      *uint      `gorm:"index" json:"crop_id,omitempty"`  // 作物（Crop）への紐付け（任意）。作物追加時に自動生成される初期タスクに使用
 	Title       string     `gorm:"size:200;not null" json:"title"`
 	Description string     `gorm:"size:1000" json:"description,omitempty"`
 	DueDate     time.Time  `gorm:"index;not null" json:"due_date"`
@@ -114,6 +115,7 @@ type Task struct {
 	// リレーション
 	User       User   `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Plant      *Plant `gorm:"foreignKey:PlantID" json:"plant,omitempty"`
+	Crop       *Crop  `gorm:"foreignKey:CropID" json:"crop,omitempty"`
 	ParentTask *Task  `gorm:"foreignKey:ParentTaskID" json:"parent_task,omitempty"`
 }
 
