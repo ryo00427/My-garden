@@ -92,7 +92,7 @@ export default function CropDetailScreen() {
     navigation.navigate('EditCrop', { cropId });
   };
 
-  // 作業ログ追加
+  // 成長記録追加
   const handleAddLog = () => {
     navigation.navigate('WorkLog', { cropId });
   };
@@ -211,12 +211,12 @@ export default function CropDetailScreen() {
         return (
           <View className="items-center justify-center py-16">
             <Ionicons name="document-text-outline" size={64} color="#d1d5db" />
-            <Text className="mt-4 text-gray-500">作業ログはまだありません</Text>
+            <Text className="mt-4 text-gray-500">成長記録はまだありません</Text>
             <TouchableOpacity
               onPress={handleAddLog}
               className="mt-4 rounded-full bg-emerald-600 px-6 py-2"
             >
-              <Text className="font-medium text-white">作業を記録する</Text>
+              <Text className="font-medium text-white">成長記録を追加する</Text>
             </TouchableOpacity>
           </View>
         );
@@ -319,7 +319,7 @@ export default function CropDetailScreen() {
         <View className="pb-24">{renderTabContent()}</View>
       </ScrollView>
 
-      {/* FAB（作業ログ追加ボタン） */}
+      {/* FAB（成長記録追加ボタン） */}
       <TouchableOpacity
         onPress={handleAddLog}
         className="absolute bottom-6 right-6 h-14 w-14 items-center justify-center rounded-full bg-emerald-600 shadow-lg"

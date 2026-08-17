@@ -284,6 +284,28 @@ export const harvestsApi = {
     post<Harvest>(`/crops/${cropId}/harvests`, data),
 };
 
+// 成長段階（バックエンドの model.GrowthRecord.GrowthStage に対応）
+type GrowthStage = 'seedling' | 'vegetative' | 'flowering' | 'fruiting';
+
+// 成長記録（バックエンドの model.GrowthRecord に対応）
+interface GrowthRecord {
+  id: number;
+  crop_id: number;
+  record_date: string;
+  growth_stage: GrowthStage;
+  notes?: string;
+  image_url?: string;
+}
+
+export const growthRecordsApi = {
+  // 作物の成長記録一覧を取得（バックエンドは配列を直接返す）
+  getAll: (cropId: number) => get<GrowthRecord[]>(`/crops/${cropId}/growth-records`),
+
+  // 成長記録を追加（バックエンド側で作物のステータスが自動的に planted -> growing に更新される）
+  create: (cropId: number, data: Omit<GrowthRecord, 'id' | 'crop_id'>) =>
+    post<GrowthRecord>(`/crops/${cropId}/growth-records`, data),
+};
+
 export const notificationApi = {
   // デバイストークンを登録
   registerDevice: (token: string, platform: 'ios' | 'android' | 'web') =>

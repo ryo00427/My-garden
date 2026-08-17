@@ -1,8 +1,10 @@
 // =============================================================================
-// WorkLogScreen - 作業ログ画面
+// WorkLogScreen - 成長記録画面
 // =============================================================================
 // デザインファイル: design/stitch_ (2)/screen.png
-// 作業記録を追加するフォームを提供します。
+// 作物の成長記録を追加するフォームを提供します。
+// 記録すると、バックエンド側で作物のステータスが自動的に
+// planted -> growing に更新されます（design.md のライフサイクル図に対応）。
 
 import React, { useState } from 'react';
 import {
@@ -19,11 +21,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
-import { cropsApi } from '../../services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { cropsApi, growthRecordsApi } from '../../services/api';
 
-// 作業タイプ
-type WorkType = 'watering' | 'fertilizing' | 'pest_control' | 'harvesting' | 'other';
+// 成長段階
+type GrowthStage = 'seedling' | 'vegetative' | 'flowering' | 'fruiting';
 
 // ナビゲーションの型定義
 type RootStackParamList = {
@@ -32,28 +34,29 @@ type RootStackParamList = {
 
 type RouteType = RouteProp<RootStackParamList, 'WorkLog'>;
 
-// 作業タイプの定義
-const WORK_TYPES: { key: WorkType; label: string; icon: string }[] = [
-  { key: 'watering', label: '水やり', icon: 'water' },
-  { key: 'fertilizing', label: '肥料', icon: 'flask' },
-  { key: 'pest_control', label: '害虫駆除', icon: 'bug' },
-  { key: 'harvesting', label: '収穫', icon: 'leaf' },
-  { key: 'other', label: 'その他', icon: 'ellipsis-horizontal' },
+// 成長段階の定義（バックエンドの model.GrowthRecord.GrowthStage に対応）
+const GROWTH_STAGES: { key: GrowthStage; label: string; icon: string }[] = [
+  { key: 'seedling', label: '苗', icon: 'leaf-outline' },
+  { key: 'vegetative', label: '成長期', icon: 'leaf' },
+  { key: 'flowering', label: '開花期', icon: 'flower' },
+  { key: 'fruiting', label: '結実期', icon: 'nutrition' },
 ];
 
 export default function WorkLogScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteType>();
   const cropId = route.params?.cropId;
+  const queryClient = useQueryClient();
 
   // フォーム状態
   const [dateStr, setDateStr] = useState(
     new Date().toISOString().split('T')[0] // YYYY-MM-DD形式
   );
   const [selectedCropId, setSelectedCropId] = useState<number | null>(cropId || null);
-  const [workType, setWorkType] = useState<WorkType>('watering');
+  const [growthStage, setGrowthStage] = useState<GrowthStage>('seedling');
   const [memo, setMemo] = useState('');
   const [showCropPicker, setShowCropPicker] = useState(false);
+  const [error, setError] = useState('');
 
   // 作物一覧を取得
   const { data: cropsData } = useQuery({
@@ -65,16 +68,33 @@ export default function WorkLogScreen() {
   const crops = cropsData || [];
   const selectedCrop = crops.find((c) => c.id === selectedCropId);
 
+  // 成長記録の作成
+  const createGrowthRecordMutation = useMutation({
+    mutationFn: (data: { record_date: string; growth_stage: GrowthStage; notes?: string }) =>
+      growthRecordsApi.create(selectedCropId as number, data),
+    onSuccess: () => {
+      // 作物のステータスが変わりうるため、関連するクエリを再取得
+      queryClient.invalidateQueries({ queryKey: ['crop', selectedCropId] });
+      queryClient.invalidateQueries({ queryKey: ['crops'] });
+      navigation.goBack();
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
   // 保存
-  // 注: 作業ログAPIはバックエンドで実装予定
   const handleSave = () => {
-    console.log('作業ログ保存:', {
-      date: dateStr,
-      cropId: selectedCropId,
-      workType,
-      memo,
+    if (!selectedCropId) {
+      setError('対象の植物を選択してください');
+      return;
+    }
+    setError('');
+    createGrowthRecordMutation.mutate({
+      record_date: new Date(dateStr + 'T00:00:00Z').toISOString(),
+      growth_stage: growthStage,
+      notes: memo.trim() || undefined,
     });
-    navigation.goBack();
   };
 
   // 閉じる
@@ -95,12 +115,17 @@ export default function WorkLogScreen() {
           <TouchableOpacity onPress={handleClose} className="p-2">
             <Ionicons name="close" size={24} color="#6b7280" />
           </TouchableOpacity>
-          <Text className="text-lg font-bold text-gray-600">作業ログ</Text>
+          <Text className="text-lg font-bold text-gray-600">成長記録</Text>
           <TouchableOpacity
             onPress={handleSave}
-            className="rounded-lg bg-emerald-500 px-4 py-2"
+            disabled={createGrowthRecordMutation.isPending}
+            className={`rounded-lg px-4 py-2 ${
+              createGrowthRecordMutation.isPending ? 'bg-emerald-300' : 'bg-emerald-500'
+            }`}
           >
-            <Text className="font-bold text-white">保存</Text>
+            <Text className="font-bold text-white">
+              {createGrowthRecordMutation.isPending ? '保存中...' : '保存'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -178,24 +203,24 @@ export default function WorkLogScreen() {
             </View>
           )}
 
-          {/* 作業の種類 */}
+          {/* 成長段階 */}
           <View className="px-4 py-4">
-            <Text className="mb-3 font-medium text-gray-600">作業の種類</Text>
+            <Text className="mb-3 font-medium text-gray-600">成長段階</Text>
             <View className="flex-row flex-wrap">
-              {WORK_TYPES.map((type) => (
+              {GROWTH_STAGES.map((stage) => (
                 <TouchableOpacity
-                  key={type.key}
-                  onPress={() => setWorkType(type.key)}
+                  key={stage.key}
+                  onPress={() => setGrowthStage(stage.key)}
                   className={`mb-2 mr-2 rounded-lg px-4 py-2 ${
-                    workType === type.key ? 'bg-emerald-500' : 'bg-gray-200'
+                    growthStage === stage.key ? 'bg-emerald-500' : 'bg-gray-200'
                   }`}
                 >
                   <Text
                     className={`font-medium ${
-                      workType === type.key ? 'text-white' : 'text-gray-500'
+                      growthStage === stage.key ? 'text-white' : 'text-gray-500'
                     }`}
                   >
-                    {type.label}
+                    {stage.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -217,14 +242,11 @@ export default function WorkLogScreen() {
             />
           </View>
 
-          {/* 写真セクション */}
-          <View className="px-4 py-4">
-            <Text className="mb-3 font-medium text-gray-600">写真</Text>
-            <TouchableOpacity className="h-24 w-24 items-center justify-center rounded-xl bg-white">
-              <Ionicons name="camera" size={32} color="#9ca3af" />
-              <Text className="mt-1 text-xs text-gray-400">追加</Text>
-            </TouchableOpacity>
-          </View>
+          {error !== '' && (
+            <View className="mx-4 mb-4 rounded-lg bg-red-50 p-3">
+              <Text className="text-center text-red-600">{error}</Text>
+            </View>
+          )}
 
           {/* 余白 */}
           <View className="h-24" />
