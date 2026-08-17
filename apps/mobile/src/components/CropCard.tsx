@@ -10,9 +10,11 @@ import ProgressBar from './ProgressBar';
 
 // 作物の状態に応じた色
 const STATUS_COLORS = {
-  planning: '#3b82f6', // 青
+  planted: '#3b82f6', // 青
   growing: '#22c55e', // 緑
+  ready_to_harvest: '#eab308', // 黄
   harvested: '#f59e0b', // オレンジ
+  failed: '#ef4444', // 赤
 } as const;
 
 // デフォルトの作物画像
@@ -37,7 +39,7 @@ interface CropCardProps {
   // 収穫予定日
   expectedHarvestDate: string;
   // 状態
-  status: 'planning' | 'growing' | 'harvested';
+  status: 'planted' | 'growing' | 'ready_to_harvest' | 'harvested' | 'failed';
   // 画像URL（オプション）
   imageUrl?: string;
   // タップ時のコールバック

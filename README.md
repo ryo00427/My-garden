@@ -6,8 +6,8 @@
 
 Go(Echo) によるバックエンドと React Native(Expo) によるモバイルアプリを Turborepo モノレポで構成し、要件定義から設計、実装、インフラ構築、テストまでを一人で担当しました。
 
+Live Demo（Web）: https://home-garden-management.expo.app （ブラウザでそのまま操作できます）
 Live Demo（API）: https://secure-scorecard-backend.onrender.com/health （稼働確認済み。無料枠のため15分無アクセスでスリープし、初回アクセス時は起動に10秒ほどかかります）
-モバイルアプリ: EAS Build の配布用リンクを準備中です
 
 ---
 

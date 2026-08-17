@@ -234,13 +234,17 @@ export const tasksApi = {
   delete: (id: number) => del<{ message: string }>(`/tasks/${id}`),
 };
 
+// 作物のステータス（バックエンドの model.Crop.Status に対応）
+// 新規作成時はバックエンドが常に 'planted' を設定する
+type CropStatus = 'planted' | 'growing' | 'ready_to_harvest' | 'harvested' | 'failed';
+
 interface Crop {
   id: number;
   name: string;
   variety: string;
   planted_date: string;
   expected_harvest_date: string;
-  status: 'planning' | 'growing' | 'harvested';
+  status: CropStatus;
 }
 
 export const cropsApi = {
@@ -250,8 +254,8 @@ export const cropsApi = {
   // 作物詳細を取得（バックエンドはオブジェクトを直接返す）
   getById: (id: number) => get<Crop>(`/crops/${id}`),
 
-  // 作物を作成（バックエンドはオブジェクトを直接返す）
-  create: (data: Omit<Crop, 'id'>) => post<Crop>('/crops', data),
+  // 作物を作成（バックエンドはオブジェクトを直接返す。statusは常にバックエンドが'planted'に設定するため送信しない）
+  create: (data: Omit<Crop, 'id' | 'status'>) => post<Crop>('/crops', data),
 
   // 作物を更新（バックエンドはオブジェクトを直接返す）
   update: (id: number, data: Partial<Crop>) => put<Crop>(`/crops/${id}`, data),

@@ -72,8 +72,11 @@ export default function HomeScreen() {
   };
 
   // 栽培中の作物のみをフィルタリング
+  // 収穫済み・失敗以外はすべて「栽培中」として扱う（新規作物は常に planted で作成されるため、
+  // growing のみに絞ると追加直後の作物が一件も表示されなくなってしまう）
   // APIは配列を直接返すので、crops自体をフィルタリング
-  const growingCrops = crops?.filter((c) => c.status === 'growing') || [];
+  const growingCrops =
+    crops?.filter((c) => c.status !== 'harvested' && c.status !== 'failed') || [];
 
   // 次の作業（最初のタスク）
   // APIは配列を直接返すので、todayTasks自体が配列

@@ -44,10 +44,13 @@ export default function CropsScreen() {
 
   // APIは配列を直接返すので、cropsData自体が配列
   const allCrops = cropsData || [];
+  // 「栽培中」は収穫済み・失敗以外すべてを含む（新規作物は常に planted で作成されるため）
   const crops =
     filter === 'all'
       ? allCrops
-      : allCrops.filter((c) => c.status === filter);
+      : filter === 'growing'
+        ? allCrops.filter((c) => c.status !== 'harvested' && c.status !== 'failed')
+        : allCrops.filter((c) => c.status === filter);
 
   // 作物詳細画面へ遷移
   const handleCropPress = (cropId: number) => {

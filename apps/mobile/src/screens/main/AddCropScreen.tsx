@@ -45,7 +45,6 @@ export default function AddCropScreen() {
       variety: string;
       planted_date: string;
       expected_harvest_date: string;
-      status: 'planning' | 'growing' | 'harvested';
     }) => cropsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crops'] });
@@ -92,7 +91,6 @@ export default function AddCropScreen() {
       variety: location.trim() || name.trim(),
       planted_date: plantedDate.toISOString(),
       expected_harvest_date: harvestDate.toISOString(),
-      status: 'growing',
     });
   };
 
