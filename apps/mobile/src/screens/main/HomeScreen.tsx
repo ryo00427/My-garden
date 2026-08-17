@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { tasksApi, cropsApi } from '../../services/api';
-import { CropCard, NextTaskCard } from '../../components';
+import { CropCard } from '../../components';
 
 // ナビゲーションの型定義
 type RootStackParamList = {
@@ -78,9 +78,9 @@ export default function HomeScreen() {
   const growingCrops =
     crops?.filter((c) => c.status !== 'harvested' && c.status !== 'failed') || [];
 
-  // 次の作業（最初のタスク）
+  // 今日の作業一覧（バックエンドは pending のもののみ返す）
   // APIは配列を直接返すので、todayTasks自体が配列
-  const nextTask = todayTasks?.[0];
+  const pendingTodayTasks = todayTasks || [];
 
   // 作物詳細画面へ遷移
   const handleCropPress = (cropId: number) => {
@@ -97,11 +97,9 @@ export default function HomeScreen() {
     navigation.navigate('Settings');
   };
 
-  // タスク完了
-  const handleCompleteTask = () => {
-    if (nextTask) {
-      completeTaskMutation.mutate(nextTask.id);
-    }
+  // タスク完了（どのタスクを完了させたか分かりやすいように、タスクIDを直接受け取る）
+  const handleCompleteTask = (taskId: number) => {
+    completeTaskMutation.mutate(taskId);
   };
 
   return (
@@ -134,12 +132,29 @@ export default function HomeScreen() {
         <View className="px-4">
           <Text className="mb-3 text-lg font-bold text-gray-800">次の作業</Text>
 
-          {nextTask ? (
-            <NextTaskCard
-              title={nextTask.title}
-              description={nextTask.description}
-              onComplete={handleCompleteTask}
-            />
+          {pendingTodayTasks.length > 0 ? (
+            <View>
+              {pendingTodayTasks.map((task) => (
+                <TouchableOpacity
+                  key={task.id}
+                  onPress={() => handleCompleteTask(task.id)}
+                  activeOpacity={0.7}
+                  className="mb-2 flex-row items-center rounded-xl bg-white p-4 shadow-sm"
+                >
+                  {/* タップで完了させるチェックボタン（一覧にあるのは常に未完了のタスクのみ） */}
+                  <View className="mr-3 h-6 w-6 rounded-full border-2 border-emerald-500" />
+                  <View className="flex-1">
+                    <Text className="font-medium text-gray-800">{task.title}</Text>
+                    {task.description && (
+                      <Text className="mt-0.5 text-sm text-gray-500">
+                        {task.description}
+                      </Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
+                </TouchableOpacity>
+              ))}
+            </View>
           ) : (
             <View className="rounded-xl bg-emerald-700 p-6">
               <Text className="text-center text-white">
