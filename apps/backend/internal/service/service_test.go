@@ -104,9 +104,12 @@ func TestIncrementFailedLogin(t *testing.T) {
 	}
 
 	// Increment failed login
-	err = svc.IncrementFailedLogin(ctx, user)
+	locked, err := svc.IncrementFailedLogin(ctx, user)
 	if err != nil {
 		t.Fatalf("IncrementFailedLogin failed: %v", err)
+	}
+	if locked {
+		t.Error("Expected account not to be locked after 1 failed attempt")
 	}
 
 	if user.FailedLoginCount != 1 {
@@ -128,9 +131,12 @@ func TestIncrementFailedLogin_AccountLock(t *testing.T) {
 	user.FailedLoginCount = 2
 
 	// Third failed attempt should lock account
-	err = svc.IncrementFailedLogin(ctx, user)
+	locked, err := svc.IncrementFailedLogin(ctx, user)
 	if err != nil {
 		t.Fatalf("IncrementFailedLogin failed: %v", err)
+	}
+	if !locked {
+		t.Error("Expected account to be reported as newly locked")
 	}
 
 	if user.FailedLoginCount != 3 {

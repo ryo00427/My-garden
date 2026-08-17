@@ -34,6 +34,7 @@ type RootStackParamList = {
   CropDetail: { cropId: number };
   EditCrop: { cropId: number };
   WorkLog: { cropId: number };
+  RecordHarvest: { cropId: number };
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -94,6 +95,11 @@ export default function CropDetailScreen() {
   // 作業ログ追加
   const handleAddLog = () => {
     navigation.navigate('WorkLog', { cropId });
+  };
+
+  // 収穫を記録（記録するとバックエンド側で作物のステータスが自動的に harvested に更新される）
+  const handleRecordHarvest = () => {
+    navigation.navigate('RecordHarvest', { cropId });
   };
 
   // 経過日数と進捗を計算
@@ -260,12 +266,22 @@ export default function CropDetailScreen() {
             >
               <Ionicons name="chevron-back" size={24} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleEdit}
-              className="rounded-full bg-white/20 px-4 py-2"
-            >
-              <Text className="font-medium text-white">編集</Text>
-            </TouchableOpacity>
+            <View className="flex-row">
+              {crop.status !== 'harvested' && crop.status !== 'failed' && (
+                <TouchableOpacity
+                  onPress={handleRecordHarvest}
+                  className="mr-2 rounded-full bg-emerald-500 px-4 py-2"
+                >
+                  <Text className="font-medium text-white">収穫を記録</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={handleEdit}
+                className="rounded-full bg-white/20 px-4 py-2"
+              >
+                <Text className="font-medium text-white">編集</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* 作物名 */}

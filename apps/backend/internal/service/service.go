@@ -143,14 +143,29 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*model.User
 	return s.repos.User().GetByEmail(ctx, email)
 }
 
-// IncrementFailedLogin increments failed login count and locks account if needed
-func (s *Service) IncrementFailedLogin(ctx context.Context, user *model.User) error {
+// IncrementFailedLogin increments failed login count and locks account if needed.
+// 戻り値のboolは、この呼び出しでアカウントが新たにロックされたかどうかを示す
+// （要件6.6のメール通知をこの呼び出し元でトリガーするために使用）。
+func (s *Service) IncrementFailedLogin(ctx context.Context, user *model.User) (bool, error) {
 	user.FailedLoginCount++
+	justLocked := false
 	if user.FailedLoginCount >= MaxFailedLoginAttempts {
 		lockUntil := time.Now().Add(AccountLockDuration)
 		user.LockedUntil = &lockUntil
+		justLocked = true
 	}
-	return s.repos.User().Update(ctx, user)
+	return justLocked, s.repos.User().Update(ctx, user)
+}
+
+// BuildAccountLockedEvent はアカウントロック時のメール通知イベントを生成します（要件6.6）。
+func BuildAccountLockedEvent(user *model.User) NotificationEvent {
+	return NotificationEvent{
+		Type:      NotificationEventAccountLocked,
+		UserID:    user.ID,
+		UserEmail: user.Email,
+		Title:     "アカウントが一時的にロックされました",
+		Body:      fmt.Sprintf("ログインに%d回連続で失敗したため、アカウントを一時的にロックしました。%d分後に再度お試しください。", MaxFailedLoginAttempts, int(AccountLockDuration.Minutes())),
+	}
 }
 
 // ResetFailedLogin resets the failed login count on successful login
@@ -618,6 +633,9 @@ func (s *Service) DeleteCrop(ctx context.Context, id uint) error {
 }
 
 // CreateGrowthRecord は新しい成長記録を作成します。
+// 作物のステータスが「植え付け済み」の場合は「栽培中」に更新します（要件5.3、design.md の
+// ライフサイクル図の Planted --> Growing に対応）。すでに栽培中・収穫準備中・収穫済み・失敗の
+// 作物は状態を変えません（Growing --> Growing: Add more records の通り、後退させない）。
 //
 // 引数:
 //   - ctx: リクエストコンテキスト
@@ -626,7 +644,21 @@ func (s *Service) DeleteCrop(ctx context.Context, id uint) error {
 // 戻り値:
 //   - error: 作成に失敗した場合のエラー
 func (s *Service) CreateGrowthRecord(ctx context.Context, record *model.GrowthRecord) error {
-	return s.repos.GrowthRecord().Create(ctx, record)
+	return s.repos.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.repos.GrowthRecord().Create(txCtx, record); err != nil {
+			return err
+		}
+
+		crop, err := s.repos.Crop().GetByID(txCtx, record.CropID)
+		if err != nil {
+			return err
+		}
+		if crop.Status == "planted" {
+			crop.Status = "growing"
+			return s.repos.Crop().Update(txCtx, crop)
+		}
+		return nil
+	})
 }
 
 // GetGrowthRecordByID はIDで成長記録を取得します。
@@ -654,6 +686,8 @@ func (s *Service) DeleteGrowthRecord(ctx context.Context, id uint) error {
 }
 
 // CreateHarvest は新しい収穫記録を作成します。
+// 併せて、作物のステータスを「収穫済み」に更新します（要件1.3、design.md のライフサイクル図の
+// ReadyToHarvest --> Harvested に対応）。
 //
 // 引数:
 //   - ctx: リクエストコンテキスト
@@ -662,7 +696,18 @@ func (s *Service) DeleteGrowthRecord(ctx context.Context, id uint) error {
 // 戻り値:
 //   - error: 作成に失敗した場合のエラー
 func (s *Service) CreateHarvest(ctx context.Context, harvest *model.Harvest) error {
-	return s.repos.Harvest().Create(ctx, harvest)
+	return s.repos.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.repos.Harvest().Create(txCtx, harvest); err != nil {
+			return err
+		}
+
+		crop, err := s.repos.Crop().GetByID(txCtx, harvest.CropID)
+		if err != nil {
+			return err
+		}
+		crop.Status = "harvested"
+		return s.repos.Crop().Update(txCtx, crop)
+	})
 }
 
 // GetHarvestByID はIDで収穫記録を取得します。
@@ -779,7 +824,9 @@ func (s *Service) DeletePlot(ctx context.Context, id uint) error {
 }
 
 // AssignCropToPlot は作物を区画に配置します。
-// 既存のアクティブな配置がある場合は、まずそれを解除します。
+// 既存のアクティブな配置がある場合は、まずそれを解除します（区画側の重複配置防止）。
+// また、配置しようとしている作物が既に別の区画にアクティブ配置されている場合は、
+// そちらも解除します（同一作物が複数区画に同時配置されるのを防止）。
 //
 // 引数:
 //   - ctx: リクエストコンテキスト
@@ -794,12 +841,46 @@ func (s *Service) AssignCropToPlot(ctx context.Context, plotID, cropID uint, ass
 	var result *model.PlotAssignment
 
 	err := s.repos.WithTransaction(ctx, func(txCtx context.Context) error {
-		// 既存のアクティブな配置を解除
+		// 既存のアクティブな配置を解除（区画側）
 		existingAssignment, err := s.repos.PlotAssignment().GetActiveByPlotID(txCtx, plotID)
 		if err == nil && existingAssignment != nil {
 			now := time.Now()
 			existingAssignment.UnassignedDate = &now
 			if err := s.repos.PlotAssignment().Update(txCtx, existingAssignment); err != nil {
+				return err
+			}
+		}
+
+		// この作物が別の区画に既にアクティブ配置されている場合は解除する（作物側）。
+		// GetByCropID はスナップショット（コピー）を返すため、実際に解除する際は
+		// GetActiveByPlotID で対象区画の現在の配置を取得し直す。
+		cropAssignments, err := s.repos.PlotAssignment().GetByCropID(txCtx, cropID)
+		if err != nil {
+			return err
+		}
+		for i := range cropAssignments {
+			candidate := &cropAssignments[i]
+			if candidate.UnassignedDate != nil || candidate.PlotID == plotID {
+				continue
+			}
+
+			oldActive, err := s.repos.PlotAssignment().GetActiveByPlotID(txCtx, candidate.PlotID)
+			if err != nil || oldActive == nil || oldActive.CropID != cropID {
+				continue // 既に別の作物に置き換わっている等
+			}
+
+			now := time.Now()
+			oldActive.UnassignedDate = &now
+			if err := s.repos.PlotAssignment().Update(txCtx, oldActive); err != nil {
+				return err
+			}
+			// 元の区画にアクティブな配置がなくなったので available に戻す
+			oldPlot, err := s.repos.Plot().GetByID(txCtx, candidate.PlotID)
+			if err != nil {
+				return err
+			}
+			oldPlot.Status = "available"
+			if err := s.repos.Plot().Update(txCtx, oldPlot); err != nil {
 				return err
 			}
 		}
@@ -1738,6 +1819,8 @@ const (
 	NotificationEventTaskOverdueAlert NotificationEventType = "task_overdue_alert"
 	// NotificationEventHarvestReminder は収穫予定のリマインダー通知
 	NotificationEventHarvestReminder NotificationEventType = "harvest_reminder"
+	// NotificationEventAccountLocked はログイン失敗によるアカウントロックの通知
+	NotificationEventAccountLocked NotificationEventType = "account_locked"
 )
 
 // NotificationEvent は通知イベントを表します。
@@ -1923,11 +2006,23 @@ func (s *Service) processTodayTaskReminders(ctx context.Context) ([]Notification
 
 // processHarvestReminders は収穫予定のリマインダーを処理します。
 // 7日以内に収穫予定の作物があるユーザーに通知を送信します。
+// あわせて、design.md のライフサイクル図（Growing --> ReadyToHarvest: 7 days before
+// expected harvest）に従い、対象作物のステータスを「栽培中」から「収穫準備中」に更新します。
 func (s *Service) processHarvestReminders(ctx context.Context) ([]NotificationEvent, error) {
 	// 7日以内に収穫予定の作物を取得
 	upcomingCrops, err := s.repos.Crop().GetUpcomingHarvests(ctx, HarvestReminderDaysAhead)
 	if err != nil {
 		return nil, err
+	}
+
+	// 栽培中の作物を「収穫準備中」に更新（収穫済み・失敗などは対象外）
+	for i := range upcomingCrops {
+		if upcomingCrops[i].Status == "growing" {
+			upcomingCrops[i].Status = "ready_to_harvest"
+			if err := s.repos.Crop().Update(ctx, &upcomingCrops[i]); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// ユーザーごとに作物をグループ化

@@ -22,7 +22,7 @@ func setupTestHandler() (*AuthHandler, *repository.MockRepositories) {
 	mockRepos := repository.NewMockRepositories()
 	svc := service.NewService(mockRepos)
 	jwtManager := auth.NewJWTManager("test-secret-key-for-testing-purposes", 24)
-	handler := NewAuthHandler(svc, jwtManager)
+	handler := NewAuthHandler(svc, jwtManager, nil)
 	return handler, mockRepos
 }
 
@@ -330,6 +330,39 @@ func TestLogin_AccountLockAfterThreeFailures(t *testing.T) {
 	}
 	if user.LockedUntil == nil {
 		t.Error("Expected account to be locked")
+	}
+}
+
+// TestLogin_AccountLockSendsEmailNotification は3回失敗でアカウントロックした際に、
+// メール通知が送信されることをテストします（要件6.6）。
+func TestLogin_AccountLockSendsEmailNotification(t *testing.T) {
+	mockRepos := repository.NewMockRepositories()
+	svc := service.NewService(mockRepos)
+	jwtManager := auth.NewJWTManager("test-secret-key-for-testing-purposes", 24)
+	mockSender := service.NewMockNotificationSender()
+	eventHandler := service.NewNotificationEventHandler(svc, mockSender, mockRepos)
+	handler := NewAuthHandler(svc, jwtManager, eventHandler)
+
+	hashedPassword, _ := auth.HashPassword("password123")
+	testUser := &model.User{
+		Email:            "test@example.com",
+		PasswordHash:     hashedPassword,
+		DisplayName:      "Test User",
+		IsActive:         true,
+		FailedLoginCount: 2, // 3回目の失敗でロックされる
+	}
+	mockRepos.GetMockUserRepository().Create(context.Background(), testUser)
+
+	body := `{"email": "test@example.com", "password": "wrongpassword"}`
+	c, _ := createTestContext(http.MethodPost, "/api/v1/auth/login", body)
+
+	_ = handler.Login(c)
+
+	if len(mockSender.SentEmailNotifications) != 1 {
+		t.Fatalf("Expected 1 email notification, got %d", len(mockSender.SentEmailNotifications))
+	}
+	if mockSender.SentEmailNotifications[0].ToEmail != "test@example.com" {
+		t.Errorf("Expected email to test@example.com, got %s", mockSender.SentEmailNotifications[0].ToEmail)
 	}
 }
 

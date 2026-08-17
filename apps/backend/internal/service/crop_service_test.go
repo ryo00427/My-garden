@@ -109,6 +109,106 @@ func TestCreateCrop_GeneratesInitialTask(t *testing.T) {
 	}
 }
 
+// TestCreateGrowthRecord_TransitionsPlantedToGrowing は成長記録追加時に
+// 作物のステータスが planted から growing に遷移することをテストします。
+func TestCreateGrowthRecord_TransitionsPlantedToGrowing(t *testing.T) {
+	mockRepos := repository.NewMockRepositories()
+	svc := NewService(mockRepos)
+	ctx := context.Background()
+
+	crop := &model.Crop{
+		UserID:              1,
+		Name:                "トマト",
+		PlantedDate:         time.Now(),
+		ExpectedHarvestDate: time.Now().AddDate(0, 3, 0),
+		Status:              "planted",
+	}
+	_ = svc.CreateCrop(ctx, crop)
+
+	record := &model.GrowthRecord{
+		CropID:      crop.ID,
+		RecordDate:  time.Now(),
+		GrowthStage: "seedling",
+	}
+	if err := svc.CreateGrowthRecord(ctx, record); err != nil {
+		t.Fatalf("CreateGrowthRecord failed: %v", err)
+	}
+
+	updated, err := svc.GetCropByID(ctx, crop.ID)
+	if err != nil {
+		t.Fatalf("GetCropByID failed: %v", err)
+	}
+	if updated.Status != "growing" {
+		t.Errorf("Expected status 'growing', got '%s'", updated.Status)
+	}
+}
+
+// TestCreateGrowthRecord_DoesNotRegressStatus は growing 以降の作物に成長記録を
+// 追加してもステータスが後退しないことをテストします。
+func TestCreateGrowthRecord_DoesNotRegressStatus(t *testing.T) {
+	mockRepos := repository.NewMockRepositories()
+	svc := NewService(mockRepos)
+	ctx := context.Background()
+
+	crop := &model.Crop{
+		UserID:              1,
+		Name:                "トマト",
+		PlantedDate:         time.Now(),
+		ExpectedHarvestDate: time.Now().AddDate(0, 3, 0),
+		Status:              "ready_to_harvest",
+	}
+	_ = svc.CreateCrop(ctx, crop)
+
+	record := &model.GrowthRecord{
+		CropID:      crop.ID,
+		RecordDate:  time.Now(),
+		GrowthStage: "fruiting",
+	}
+	if err := svc.CreateGrowthRecord(ctx, record); err != nil {
+		t.Fatalf("CreateGrowthRecord failed: %v", err)
+	}
+
+	updated, _ := svc.GetCropByID(ctx, crop.ID)
+	if updated.Status != "ready_to_harvest" {
+		t.Errorf("Expected status to remain 'ready_to_harvest', got '%s'", updated.Status)
+	}
+}
+
+// TestCreateHarvest_TransitionsToHarvested は収穫記録追加時に
+// 作物のステータスが harvested に更新されることをテストします。
+func TestCreateHarvest_TransitionsToHarvested(t *testing.T) {
+	mockRepos := repository.NewMockRepositories()
+	svc := NewService(mockRepos)
+	ctx := context.Background()
+
+	crop := &model.Crop{
+		UserID:              1,
+		Name:                "トマト",
+		PlantedDate:         time.Now(),
+		ExpectedHarvestDate: time.Now(),
+		Status:              "ready_to_harvest",
+	}
+	_ = svc.CreateCrop(ctx, crop)
+
+	harvest := &model.Harvest{
+		CropID:       crop.ID,
+		HarvestDate:  time.Now(),
+		Quantity:     1.2,
+		QuantityUnit: "kg",
+	}
+	if err := svc.CreateHarvest(ctx, harvest); err != nil {
+		t.Fatalf("CreateHarvest failed: %v", err)
+	}
+
+	updated, err := svc.GetCropByID(ctx, crop.ID)
+	if err != nil {
+		t.Fatalf("GetCropByID failed: %v", err)
+	}
+	if updated.Status != "harvested" {
+		t.Errorf("Expected status 'harvested', got '%s'", updated.Status)
+	}
+}
+
 // TestCreateCrop_WithPlotID は区画ID付きの作物作成をテストします。
 func TestCreateCrop_WithPlotID(t *testing.T) {
 	mockRepos := repository.NewMockRepositories()

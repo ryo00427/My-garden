@@ -264,6 +264,26 @@ export const cropsApi = {
   delete: (id: number) => del<{ message: string }>(`/crops/${id}`),
 };
 
+// 収穫記録（バックエンドの model.Harvest に対応）
+interface Harvest {
+  id: number;
+  crop_id: number;
+  harvest_date: string;
+  quantity: number;
+  quantity_unit: 'kg' | 'g' | 'pieces';
+  quality?: 'excellent' | 'good' | 'fair' | 'poor';
+  notes?: string;
+}
+
+export const harvestsApi = {
+  // 作物の収穫記録一覧を取得（バックエンドは配列を直接返す）
+  getAll: (cropId: number) => get<Harvest[]>(`/crops/${cropId}/harvests`),
+
+  // 収穫記録を追加（バックエンド側で作物のステータスが自動的に harvested に更新される）
+  create: (cropId: number, data: Omit<Harvest, 'id' | 'crop_id'>) =>
+    post<Harvest>(`/crops/${cropId}/harvests`, data),
+};
+
 export const notificationApi = {
   // デバイストークンを登録
   registerDevice: (token: string, platform: 'ios' | 'android' | 'web') =>
@@ -344,7 +364,8 @@ export const analyticsApi = {
     if (params?.end_date) queryParams.append('end_date', params.end_date);
     if (params?.crop_id) queryParams.append('crop_id', params.crop_id.toString());
     const query = queryParams.toString();
-    return get<HarvestSummary>(`/analytics/harvest-summary${query ? `?${query}` : ''}`);
+    // バックエンドのルートは /analytics/harvest（harvest-summary ではない。handler.go 参照）
+    return get<HarvestSummary>(`/analytics/harvest${query ? `?${query}` : ''}`);
   },
 
   // グラフデータを取得

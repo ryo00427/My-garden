@@ -13,15 +13,17 @@ import (
 
 // AuthHandler handles authentication endpoints
 type AuthHandler struct {
-	service    *service.Service
-	jwtManager *auth.JWTManager
+	service      *service.Service
+	jwtManager   *auth.JWTManager
+	eventHandler service.NotificationEventHandler // 任意。アカウントロック時のメール通知に使用
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(svc *service.Service, jwtManager *auth.JWTManager) *AuthHandler {
+func NewAuthHandler(svc *service.Service, jwtManager *auth.JWTManager, eventHandler service.NotificationEventHandler) *AuthHandler {
 	return &AuthHandler{
-		service:    svc,
-		jwtManager: jwtManager,
+		service:      svc,
+		jwtManager:   jwtManager,
+		eventHandler: eventHandler,
 	}
 }
 
@@ -115,7 +117,11 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	// Verify password
 	if err := auth.VerifyPassword(user.PasswordHash, req.Password); err != nil {
 		// Increment failed login count
-		_ = h.service.IncrementFailedLogin(ctx, user)
+		justLocked, incErr := h.service.IncrementFailedLogin(ctx, user)
+		if incErr == nil && justLocked && h.eventHandler != nil {
+			// アカウントロックをユーザーにメールで通知する（要件6.6）
+			_ = h.eventHandler.HandleEvent(ctx, service.BuildAccountLockedEvent(user))
+		}
 		return apperrors.NewAuthenticationError("Invalid email or password")
 	}
 

@@ -23,8 +23,10 @@ func NewHandler(svc *service.Service, jwtManager *auth.JWTManager, s3Svc *storag
 	}
 }
 
-// RegisterRoutes registers all routes
-func (h *Handler) RegisterRoutes(e *echo.Echo) {
+// RegisterRoutes registers all routes.
+// eventHandler はアカウントロック時のメール通知などに使う任意の通知イベントハンドラーです。
+// 未設定（nil）の場合、該当する即時通知はスキップされます。
+func (h *Handler) RegisterRoutes(e *echo.Echo, eventHandler service.NotificationEventHandler) {
 	// Health check (public)
 	e.GET("/health", h.Health)
 	e.GET("/", h.Hello)
@@ -33,7 +35,7 @@ func (h *Handler) RegisterRoutes(e *echo.Echo) {
 	api := e.Group("/api/v1")
 
 	// Auth endpoints (public)
-	authHandler := NewAuthHandler(h.service, h.jwtManager)
+	authHandler := NewAuthHandler(h.service, h.jwtManager, eventHandler)
 	authGroup := api.Group("/auth")
 	authGroup.POST("/register", authHandler.Register)
 	authGroup.POST("/login", authHandler.Login)

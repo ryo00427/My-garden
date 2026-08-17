@@ -40,7 +40,7 @@ func newIntegrationTestSetup() *integrationTestSetup {
 	mockRepos := repository.NewMockRepositories()
 	svc := service.NewService(mockRepos)
 	jwtManager := auth.NewJWTManager("integration-test-secret-key-32chars", 24)
-	authHandler := NewAuthHandler(svc, jwtManager)
+	authHandler := NewAuthHandler(svc, jwtManager, nil)
 	handler := NewHandler(svc, jwtManager, nil) // nil for S3Service in tests
 
 	return &integrationTestSetup{

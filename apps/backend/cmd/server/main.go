@@ -94,10 +94,9 @@ func main() {
 		svc := service.NewService(repos)
 		h := handler.NewHandler(svc, jwtManager, s3Svc)
 
-		// Register routes
-		h.RegisterRoutes(e)
-
 		// Initialize notification sender and event handler (optional)
+		// RegisterRoutes より前に構築し、ログイン失敗によるアカウントロック通知など
+		// スケジューラーを介さない即時通知でも使えるようにする。
 		var notificationEventHandler service.NotificationEventHandler
 		notificationSender, err := service.NewNotificationSender(&cfg.Notification)
 		if err != nil {
@@ -107,6 +106,9 @@ func main() {
 			notificationEventHandler = service.NewNotificationEventHandler(svc, notificationSender, repos)
 			log.Println("Notification sender initialized successfully")
 		}
+
+		// Register routes
+		h.RegisterRoutes(e, notificationEventHandler)
 
 		// Register scheduler routes (for EventBridge Scheduler)
 		h.RegisterSchedulerRoutes(e, cfg.Scheduler.AuthToken, cfg.Server.Env == "development", notificationEventHandler)

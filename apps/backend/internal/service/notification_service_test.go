@@ -391,6 +391,43 @@ func TestProcessScheduledNotificationsAndSend(t *testing.T) {
 	}
 }
 
+// TestProcessScheduledNotifications_TransitionsToReadyToHarvest は
+// 収穫予定7日以内の作物が growing --> ready_to_harvest に自動遷移することをテストします。
+// design.md のライフサイクル図（Growing --> ReadyToHarvest: 7 days before expected harvest）に対応。
+func TestProcessScheduledNotifications_TransitionsToReadyToHarvest(t *testing.T) {
+	mockRepos := repository.NewMockRepositories()
+	svc := NewService(mockRepos)
+	ctx := context.Background()
+
+	user := &model.User{Email: "test@example.com", PasswordHash: "hashed"}
+	if err := mockRepos.User().Create(ctx, user); err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	crop := &model.Crop{
+		UserID:              user.ID,
+		Name:                "トマト",
+		PlantedDate:         time.Now().AddDate(0, -2, 0),
+		ExpectedHarvestDate: time.Now().AddDate(0, 0, 3), // 3日後（7日以内）
+		Status:              "growing",
+	}
+	if err := svc.CreateCrop(ctx, crop); err != nil {
+		t.Fatalf("CreateCrop failed: %v", err)
+	}
+
+	if _, err := svc.ProcessScheduledNotifications(ctx); err != nil {
+		t.Fatalf("ProcessScheduledNotifications failed: %v", err)
+	}
+
+	updated, err := svc.GetCropByID(ctx, crop.ID)
+	if err != nil {
+		t.Fatalf("GetCropByID failed: %v", err)
+	}
+	if updated.Status != "ready_to_harvest" {
+		t.Errorf("Expected status 'ready_to_harvest', got '%s'", updated.Status)
+	}
+}
+
 // TestProcessScheduledNotificationsAndSend_OverdueTasks は期限切れタスク警告のテストです。
 // 注: このテストはモックリポジトリの制約により、Task.Userの関連付けが必要です。
 func TestProcessScheduledNotificationsAndSend_OverdueTasks(t *testing.T) {

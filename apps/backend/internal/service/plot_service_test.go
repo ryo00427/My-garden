@@ -552,6 +552,59 @@ func TestAssignCropToPlot_ReplaceExisting(t *testing.T) {
 	}
 }
 
+// TestAssignCropToPlot_UnassignsFromPreviousPlot は同じ作物を別の区画に配置した際、
+// 元の区画から自動的に解除されることをテストします（作物の複数区画同時配置を防止）。
+func TestAssignCropToPlot_UnassignsFromPreviousPlot(t *testing.T) {
+	mockRepos := repository.NewMockRepositories()
+	svc := NewService(mockRepos)
+	ctx := context.Background()
+
+	plotA := &model.Plot{UserID: 1, Name: "畑A", Width: 1.0, Height: 1.0, Status: "available"}
+	_ = svc.CreatePlot(ctx, plotA)
+	plotB := &model.Plot{UserID: 1, Name: "畑B", Width: 1.0, Height: 1.0, Status: "available"}
+	_ = svc.CreatePlot(ctx, plotB)
+
+	crop := &model.Crop{
+		UserID:              1,
+		Name:                "トマト",
+		PlantedDate:         time.Now(),
+		ExpectedHarvestDate: time.Now().AddDate(0, 3, 0),
+		Status:              "planted",
+	}
+	_ = svc.CreateCrop(ctx, crop)
+
+	// 畑Aに配置
+	_, err := svc.AssignCropToPlot(ctx, plotA.ID, crop.ID, time.Now())
+	if err != nil {
+		t.Fatalf("AssignCropToPlot (plotA) failed: %v", err)
+	}
+
+	// Act: 同じ作物を畑Bに配置
+	_, err = svc.AssignCropToPlot(ctx, plotB.ID, crop.ID, time.Now())
+	if err != nil {
+		t.Fatalf("AssignCropToPlot (plotB) failed: %v", err)
+	}
+
+	// Assert: 畑Aはもうアクティブな配置を持たず、available に戻る
+	_, err = svc.GetActivePlotAssignment(ctx, plotA.ID)
+	if err == nil {
+		t.Error("Expected plotA to have no active assignment")
+	}
+	updatedPlotA, _ := svc.GetPlotByID(ctx, plotA.ID)
+	if updatedPlotA.Status != "available" {
+		t.Errorf("Expected plotA status 'available', got '%s'", updatedPlotA.Status)
+	}
+
+	// 畑Bがアクティブ
+	activeB, err := svc.GetActivePlotAssignment(ctx, plotB.ID)
+	if err != nil {
+		t.Fatalf("Expected plotB to have an active assignment: %v", err)
+	}
+	if activeB.CropID != crop.ID {
+		t.Errorf("Expected plotB active crop %d, got %d", crop.ID, activeB.CropID)
+	}
+}
+
 // =============================================================================
 // UnassignCropFromPlot テスト
 // =============================================================================

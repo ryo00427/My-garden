@@ -49,7 +49,7 @@ func newPerformanceTestSetup(t *testing.T) *performanceTestSetup {
 	mockRepos := repository.NewMockRepositories()
 	svc := service.NewService(mockRepos)
 	jwtManager := auth.NewJWTManager("performance-test-secret-key-32ch", 24)
-	authHandler := NewAuthHandler(svc, jwtManager)
+	authHandler := NewAuthHandler(svc, jwtManager, nil)
 	handler := NewHandler(svc, jwtManager, nil)
 
 	// テストユーザーを作成
