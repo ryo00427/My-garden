@@ -212,6 +212,8 @@ interface Task {
   due_date: string;
   priority: 'low' | 'medium' | 'high';
   status: 'pending' | 'completed';
+  // 紐づく作物のID（バックエンドの model.Task.CropID に対応。任意）
+  crop_id?: number;
 }
 
 export const tasksApi = {

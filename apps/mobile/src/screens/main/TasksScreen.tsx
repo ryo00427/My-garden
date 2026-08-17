@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { tasksApi } from '../../services/api';
+import { tasksApi, cropsApi } from '../../services/api';
 
 type FilterType = 'all' | 'today' | 'overdue';
 type PriorityType = 'low' | 'medium' | 'high';
@@ -30,6 +30,7 @@ const initialFormState = {
   description: '',
   due_date: '',
   priority: 'medium' as PriorityType,
+  crop_id: undefined as number | undefined,
 };
 
 export default function TasksScreen() {
@@ -37,6 +38,7 @@ export default function TasksScreen() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [formData, setFormData] = useState(initialFormState);
+  const [showCropPicker, setShowCropPicker] = useState(false);
 
   // タスク一覧を取得
   const { data: allTasks, isLoading, refetch } = useQuery({
@@ -53,6 +55,15 @@ export default function TasksScreen() {
     },
   });
 
+  // 作物一覧を取得（タスクとの紐付け表示・選択用）
+  const { data: cropsData } = useQuery({
+    queryKey: ['crops'],
+    queryFn: () => cropsApi.getAll(),
+  });
+  const crops = cropsData || [];
+  // 作物IDから作物名を引くためのマップ
+  const cropNameById = new Map(crops.map((c) => [c.id, c.name]));
+
   // タスク作成ミューテーション
   const createMutation = useMutation({
     mutationFn: (data: typeof initialFormState) => tasksApi.create(data),
@@ -60,6 +71,7 @@ export default function TasksScreen() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setIsModalVisible(false);
       setFormData(initialFormState);
+      setShowCropPicker(false);
       Alert.alert('成功', 'タスクを作成しました');
     },
     onError: (error: unknown) => {
@@ -138,6 +150,7 @@ export default function TasksScreen() {
   const closeModal = () => {
     setIsModalVisible(false);
     setFormData(initialFormState);
+    setShowCropPicker(false);
   };
 
   // APIは配列を直接返すので、allTasks自体が配列
@@ -219,6 +232,15 @@ export default function TasksScreen() {
                     <Text className="mt-1 text-sm text-gray-500">
                       {task.description}
                     </Text>
+                  )}
+                  {/* 紐づく作物（マイプラント） */}
+                  {task.crop_id != null && cropNameById.has(task.crop_id) && (
+                    <View className="mt-2 flex-row items-center self-start rounded-full bg-emerald-50 px-2 py-0.5">
+                      <Ionicons name="leaf" size={12} color="#059669" />
+                      <Text className="ml-1 text-xs font-medium text-emerald-700">
+                        {cropNameById.get(task.crop_id)}
+                      </Text>
+                    </View>
                   )}
                   <View className="mt-2 flex-row items-center">
                     {/* 優先度バッジ */}
@@ -344,6 +366,57 @@ export default function TasksScreen() {
                   }
                   keyboardType="numbers-and-punctuation"
                 />
+              </View>
+
+              {/* 対象の作物（マイプラント） */}
+              <View className="mb-4">
+                <Text className="mb-2 text-sm font-medium text-gray-700">
+                  対象の作物（任意）
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowCropPicker(!showCropPicker)}
+                  className="flex-row items-center justify-between rounded-lg border border-gray-300 px-4 py-3"
+                >
+                  <Text className="text-base text-gray-800">
+                    {formData.crop_id != null
+                      ? cropNameById.get(formData.crop_id) ?? '選択してください'
+                      : 'なし'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={18} color="#9ca3af" />
+                </TouchableOpacity>
+                {showCropPicker && (
+                  <View className="mt-2 rounded-lg border border-gray-200 bg-white">
+                    <TouchableOpacity
+                      onPress={() => {
+                        setFormData((prev) => ({ ...prev, crop_id: undefined }));
+                        setShowCropPicker(false);
+                      }}
+                      className="border-b border-gray-100 px-4 py-3"
+                    >
+                      <Text className="text-gray-500">なし</Text>
+                    </TouchableOpacity>
+                    {crops.map((crop) => (
+                      <TouchableOpacity
+                        key={crop.id}
+                        onPress={() => {
+                          setFormData((prev) => ({ ...prev, crop_id: crop.id }));
+                          setShowCropPicker(false);
+                        }}
+                        className="border-b border-gray-100 px-4 py-3"
+                      >
+                        <Text
+                          className={
+                            formData.crop_id === crop.id
+                              ? 'font-medium text-emerald-600'
+                              : 'text-gray-800'
+                          }
+                        >
+                          {crop.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
 
               {/* 優先度選択 */}

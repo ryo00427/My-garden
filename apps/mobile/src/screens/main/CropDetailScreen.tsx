@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { cropsApi } from '../../services/api';
+import { cropsApi, tasksApi } from '../../services/api';
 
 // 画面幅
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -51,22 +51,8 @@ const DEFAULT_CROP_IMAGES: Record<string, string> = {
   'ピーマン': 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600',
 };
 
-// アクティビティアイコン
+// アイコンの型
 type IconName = ComponentProps<typeof Ionicons>['name'];
-const ACTIVITY_ICONS: Record<string, { icon: IconName; color: string }> = {
-  watering: { icon: 'water', color: '#3b82f6' },
-  fertilizing: { icon: 'flask', color: '#f59e0b' },
-  photo: { icon: 'camera', color: '#ec4899' },
-  harvesting: { icon: 'leaf', color: '#22c55e' },
-  pruning: { icon: 'cut', color: '#8b5cf6' },
-};
-
-// モック: 作業履歴データ
-const mockActivities = [
-  { id: 1, type: 'watering', label: '水やり', detail: '500ml', date: '昨日' },
-  { id: 2, type: 'fertilizing', label: '施肥', detail: '液体肥料', date: '3日前' },
-  { id: 3, type: 'photo', label: '写真追加', detail: '', date: '5日前' },
-];
 
 export default function CropDetailScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -83,6 +69,13 @@ export default function CropDetailScreen() {
 
   // APIはオブジェクトを直接返すので、cropData自体がCrop
   const crop = cropData;
+
+  // この作物に紐づくタスクを取得（マイプラントとタスクの関係を可視化する）
+  const { data: allTasks } = useQuery({
+    queryKey: ['tasks', 'all'],
+    queryFn: () => tasksApi.getAll(),
+  });
+  const cropTasks = (allTasks || []).filter((t) => t.crop_id === cropId);
 
   // 作物削除
   const deleteCropMutation = useMutation({
@@ -199,40 +192,41 @@ export default function CropDetailScreen() {
               </View>
             </View>
 
-            {/* 最近のアクティビティ */}
+            {/* この作物のタスク */}
             <View className="mx-4 mt-4 rounded-xl bg-white p-4">
-              <View className="flex-row items-center justify-between">
-                <Text className="font-semibold text-gray-800">最近のアクティビティ</Text>
-                <TouchableOpacity>
-                  <Text className="text-sm font-medium text-emerald-600">すべて見る</Text>
-                </TouchableOpacity>
-              </View>
-              <View className="mt-3">
-                {mockActivities.map((activity) => {
-                  const iconInfo = ACTIVITY_ICONS[activity.type] || { icon: 'ellipse' as IconName, color: '#6b7280' };
-                  return (
-                    <View key={activity.id} className="flex-row items-center py-3">
-                      <View
-                        className="mr-3 h-10 w-10 items-center justify-center rounded-full"
-                        style={{ backgroundColor: `${iconInfo.color}20` }}
-                      >
-                        <Ionicons
-                          name={iconInfo.icon}
-                          size={20}
-                          color={iconInfo.color}
-                        />
+              <Text className="font-semibold text-gray-800">この作物のタスク</Text>
+              {cropTasks.length > 0 ? (
+                <View className="mt-3">
+                  {cropTasks.map((task) => {
+                    const icon: IconName =
+                      task.status === 'completed' ? 'checkmark-circle' : 'ellipse-outline';
+                    const iconColor = task.status === 'completed' ? '#22c55e' : '#9ca3af';
+                    return (
+                      <View key={task.id} className="flex-row items-center py-3">
+                        <Ionicons name={icon} size={20} color={iconColor} />
+                        <View className="ml-3 flex-1">
+                          <Text
+                            className={`font-medium ${
+                              task.status === 'completed'
+                                ? 'text-gray-400 line-through'
+                                : 'text-gray-800'
+                            }`}
+                          >
+                            {task.title}
+                          </Text>
+                        </View>
+                        <Text className="text-sm text-gray-400">
+                          {new Date(task.due_date).toLocaleDateString('ja-JP')}
+                        </Text>
                       </View>
-                      <View className="flex-1">
-                        <Text className="font-medium text-gray-800">{activity.label}</Text>
-                        {activity.detail && (
-                          <Text className="text-sm text-gray-500">{activity.detail}</Text>
-                        )}
-                      </View>
-                      <Text className="text-sm text-gray-400">{activity.date}</Text>
-                    </View>
-                  );
-                })}
-              </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text className="mt-3 text-sm text-gray-500">
+                  この作物に紐づくタスクはまだありません
+                </Text>
+              )}
             </View>
           </View>
         );

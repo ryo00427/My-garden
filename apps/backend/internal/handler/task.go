@@ -35,7 +35,8 @@ import (
 //   - Description: タスクの詳細説明（任意、最大1000文字）
 //   - DueDate: 期限日（必須、RFC3339形式）
 //   - Priority: 優先度（low/medium/high、デフォルト: medium）
-//   - PlantID: 関連する植物のID（任意）
+//   - PlantID: 関連する植物のID（任意、レガシーPlantモデル用）
+//   - CropID: 関連する作物のID（任意。マイプラント画面の作物とタスクを紐付ける）
 //
 // 繰り返し設定:
 //   - Recurrence: 繰り返し頻度（daily/weekly/monthly、任意）
@@ -48,6 +49,7 @@ type CreateTaskRequest struct {
 	DueDate     time.Time `json:"due_date" validate:"required"`
 	Priority    string    `json:"priority" validate:"omitempty,oneof=low medium high"`
 	PlantID     *uint     `json:"plant_id"`
+	CropID      *uint     `json:"crop_id"`
 
 	// 繰り返し設定（任意）
 	Recurrence         string     `json:"recurrence" validate:"omitempty,oneof=daily weekly monthly"`
@@ -68,6 +70,7 @@ type UpdateTaskRequest struct {
 	Priority    string    `json:"priority" validate:"omitempty,oneof=low medium high"`
 	Status      string    `json:"status" validate:"omitempty,oneof=pending completed cancelled"`
 	PlantID     *uint     `json:"plant_id"`
+	CropID      *uint     `json:"crop_id"`
 
 	// 繰り返し設定（任意）
 	Recurrence         *string    `json:"recurrence" validate:"omitempty,oneof=daily weekly monthly"`
@@ -190,6 +193,7 @@ func (h *Handler) CreateTask(c echo.Context) error {
 	task := &model.Task{
 		UserID:             userID,
 		PlantID:            req.PlantID,
+		CropID:             req.CropID,
 		Title:              req.Title,
 		Description:        req.Description,
 		DueDate:            req.DueDate,
@@ -265,6 +269,9 @@ func (h *Handler) UpdateTask(c echo.Context) error {
 	}
 	if req.PlantID != nil {
 		task.PlantID = req.PlantID
+	}
+	if req.CropID != nil {
+		task.CropID = req.CropID
 	}
 
 	// 繰り返し設定の更新
