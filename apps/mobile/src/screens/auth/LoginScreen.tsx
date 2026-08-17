@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,6 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../services/api';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
+import { showAlert } from '../../utils/alert';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -36,11 +36,11 @@ export default function LoginScreen({ navigation }: Props) {
   const handleLogin = async () => {
     // バリデーション
     if (!email.trim()) {
-      Alert.alert('エラー', 'メールアドレスを入力してください');
+      showAlert('エラー', 'メールアドレスを入力してください');
       return;
     }
     if (!password) {
-      Alert.alert('エラー', 'パスワードを入力してください');
+      showAlert('エラー', 'パスワードを入力してください');
       return;
     }
 
@@ -54,7 +54,7 @@ export default function LoginScreen({ navigation }: Props) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'ログインに失敗しました';
-      Alert.alert('ログインエラー', message);
+      showAlert('ログインエラー', message);
     } finally {
       setIsLoading(false);
     }

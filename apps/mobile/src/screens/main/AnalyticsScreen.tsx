@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  Alert,
   Share,
   ActivityIndicator,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 import { analyticsApi, CropHarvestSummary, ChartData } from '../../services/api';
+import { showAlert } from '../../utils/alert';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -87,11 +87,11 @@ export default function AnalyticsScreen() {
           message: `ダウンロードリンク: ${data.download_url}`,
         });
       } catch (error) {
-        Alert.alert('エラー', 'データの共有に失敗しました');
+        showAlert('エラー', 'データの共有に失敗しました');
       }
     },
     onError: (error) => {
-      Alert.alert('エラー', 'エクスポートに失敗しました');
+      showAlert('エラー', 'エクスポートに失敗しました');
       console.error('Export error:', error);
     },
   });

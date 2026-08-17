@@ -10,12 +10,12 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { notificationApi, authApi } from '../../services/api';
+import { showAlert } from '../../utils/alert';
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
@@ -34,13 +34,13 @@ export default function SettingsScreen() {
       queryClient.invalidateQueries({ queryKey: ['notificationSettings'] });
     },
     onError: (error) => {
-      Alert.alert('エラー', error instanceof Error ? error.message : '設定の更新に失敗しました');
+      showAlert('エラー', error instanceof Error ? error.message : '設定の更新に失敗しました');
     },
   });
 
   // ログアウト処理
   const handleLogout = () => {
-    Alert.alert(
+    showAlert(
       'ログアウト',
       'ログアウトしますか？',
       [
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
           </View>
           <TouchableOpacity
             className="flex-row items-center border-b border-gray-100 px-4 py-3"
-            onPress={() => Alert.alert(
+            onPress={() => showAlert(
               '利用規約',
               'マイガーデンアプリをご利用いただきありがとうございます。\n\n本アプリの利用規約については、正式リリース時に公開予定です。'
             )}
@@ -166,7 +166,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             className="flex-row items-center px-4 py-3"
-            onPress={() => Alert.alert(
+            onPress={() => showAlert(
               'プライバシーポリシー',
               'お客様の個人情報は適切に管理されます。\n\n• 収集した情報は本アプリの機能提供のみに使用されます\n• 第三者への情報提供は行いません\n• データは暗号化して保存されます\n\n詳細なプライバシーポリシーは正式リリース時に公開予定です。'
             )}

@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -20,6 +19,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { tasksApi, cropsApi } from '../../services/api';
+import { showAlert } from '../../utils/alert';
 
 type FilterType = 'all' | 'today' | 'overdue';
 type PriorityType = 'low' | 'medium' | 'high';
@@ -72,7 +72,7 @@ export default function TasksScreen() {
       setIsModalVisible(false);
       setFormData(initialFormState);
       setShowCropPicker(false);
-      Alert.alert('成功', 'タスクを作成しました');
+      showAlert('成功', 'タスクを作成しました');
     },
     onError: (error: unknown) => {
       console.error('タスク作成エラー:', error);
@@ -84,7 +84,7 @@ export default function TasksScreen() {
         const errorObj = error as { message?: string; error?: string };
         errorMessage = errorObj.message || errorObj.error || JSON.stringify(error);
       }
-      Alert.alert('エラー', errorMessage);
+      showAlert('エラー', errorMessage);
     },
   });
 
@@ -95,12 +95,12 @@ export default function TasksScreen() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error) => {
-      Alert.alert('エラー', error instanceof Error ? error.message : 'タスクの完了に失敗しました');
+      showAlert('エラー', error instanceof Error ? error.message : 'タスクの完了に失敗しました');
     },
   });
 
   const handleComplete = (id: number, title: string) => {
-    Alert.alert(
+    showAlert(
       'タスク完了',
       `「${title}」を完了しますか？`,
       [
@@ -113,21 +113,47 @@ export default function TasksScreen() {
     );
   };
 
+  // タスク削除ミューテーション
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => tasksApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error) => {
+      showAlert('エラー', error instanceof Error ? error.message : 'タスクの削除に失敗しました');
+    },
+  });
+
+  const handleDelete = (id: number, title: string) => {
+    showAlert(
+      'タスクを削除',
+      `「${title}」を削除しますか？この操作は取り消せません。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(id),
+        },
+      ]
+    );
+  };
+
   // タスク作成ハンドラー
   const handleCreate = () => {
     // バリデーション
     if (!formData.title.trim()) {
-      Alert.alert('エラー', 'タイトルを入力してください');
+      showAlert('エラー', 'タイトルを入力してください');
       return;
     }
     if (!formData.due_date.trim()) {
-      Alert.alert('エラー', '期限を入力してください（例: 2024-12-31）');
+      showAlert('エラー', '期限を入力してください（例: 2024-12-31）');
       return;
     }
     // 日付形式チェック（YYYY-MM-DD）
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(formData.due_date)) {
-      Alert.alert('エラー', '期限は YYYY-MM-DD 形式で入力してください（例: 2024-12-31）');
+      showAlert('エラー', '期限は YYYY-MM-DD 形式で入力してください（例: 2024-12-31）');
       return;
     }
     // バックエンドはRFC3339形式（time.Time）を期待するため変換
@@ -278,6 +304,14 @@ export default function TasksScreen() {
                     </View>
                   </View>
                 </View>
+
+                {/* 削除ボタン */}
+                <TouchableOpacity
+                  className="ml-2 p-1"
+                  onPress={() => handleDelete(task.id, task.title)}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#9ca3af" />
+                </TouchableOpacity>
               </View>
             </View>
           ))

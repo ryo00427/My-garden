@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,6 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../services/api';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
+import { showAlert } from '../../utils/alert';
 
 type RegisterScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -38,23 +38,23 @@ export default function RegisterScreen({ navigation }: Props) {
   const handleRegister = async () => {
     // バリデーション
     if (!displayName.trim()) {
-      Alert.alert('エラー', '表示名を入力してください');
+      showAlert('エラー', '表示名を入力してください');
       return;
     }
     if (!email.trim()) {
-      Alert.alert('エラー', 'メールアドレスを入力してください');
+      showAlert('エラー', 'メールアドレスを入力してください');
       return;
     }
     if (!password) {
-      Alert.alert('エラー', 'パスワードを入力してください');
+      showAlert('エラー', 'パスワードを入力してください');
       return;
     }
     if (password.length < 8) {
-      Alert.alert('エラー', 'パスワードは8文字以上で入力してください');
+      showAlert('エラー', 'パスワードは8文字以上で入力してください');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('エラー', 'パスワードが一致しません');
+      showAlert('エラー', 'パスワードが一致しません');
       return;
     }
 
@@ -72,7 +72,7 @@ export default function RegisterScreen({ navigation }: Props) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : '登録に失敗しました';
-      Alert.alert('登録エラー', message);
+      showAlert('登録エラー', message);
     } finally {
       setIsLoading(false);
     }

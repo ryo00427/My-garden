@@ -15,7 +15,6 @@ import {
   StatusBar,
   Dimensions,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { cropsApi, tasksApi } from '../../services/api';
+import { showAlert } from '../../utils/alert';
 
 // 画面幅
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -82,10 +82,12 @@ export default function CropDetailScreen() {
     mutationFn: () => cropsApi.delete(cropId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crops'] });
+      // 作物削除に伴いバックエンド側で紐づくタスクも削除されるため、タスク一覧も再取得する
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       navigation.goBack();
     },
     onError: (error: Error) => {
-      Alert.alert('エラー', error.message || '作物の削除に失敗しました');
+      showAlert('エラー', error.message || '作物の削除に失敗しました');
     },
   });
 
@@ -101,7 +103,7 @@ export default function CropDetailScreen() {
 
   // 削除（確認ダイアログを表示してから削除）
   const handleDelete = () => {
-    Alert.alert(
+    showAlert(
       '作物を削除',
       `「${crop?.name}」を削除しますか？この操作は取り消せません。`,
       [
